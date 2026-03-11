@@ -67,12 +67,12 @@ export default function NewProposalPage() {
           <div key={s} className="flex items-center gap-2">
             <div
               className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                step >= s ? 'bg-[#1a2744] text-white' : 'bg-gray-100 text-gray-400'
+                step >= s ? 'bg-[#02210C] text-white' : 'bg-gray-100 text-gray-400'
               }`}
             >
               {s}
             </div>
-            {s < 3 && <div className={`h-px w-8 ${step > s ? 'bg-[#1a2744]' : 'bg-gray-200'}`} />}
+            {s < 3 && <div className={`h-px w-8 ${step > s ? 'bg-[#02210C]' : 'bg-gray-200'}`} />}
           </div>
         ))}
         <span className="ml-2 text-sm text-gray-500">
@@ -98,7 +98,7 @@ export default function NewProposalPage() {
           <button
             onClick={loadTranscripts}
             disabled={loading}
-            className="bg-[#1a2744] text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-[#243561] transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="bg-[#02210C] text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-[#033a12] transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {loading ? (
               <>
@@ -132,7 +132,7 @@ export default function NewProposalPage() {
                     onClick={() => setSelected(t)}
                     className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ${
                       selected?.pageId === t.pageId
-                        ? 'border-[#1a2744] bg-[#1a2744]/5 text-[#1a2744] font-medium'
+                        ? 'border-[#02210C] bg-[#02210C]/5 text-[#02210C] font-medium'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -157,12 +157,12 @@ export default function NewProposalPage() {
                 value={pricing}
                 onChange={(e) => setPricing(e.target.value)}
                 placeholder="e.g. $5,000"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#1a2744] focus:ring-1 focus:ring-[#1a2744]/20"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#02210C] focus:ring-1 focus:ring-[#02210C]/20"
               />
               <button
                 onClick={generate}
                 disabled={!pricing.trim()}
-                className="mt-4 w-full bg-[#1a2744] text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-[#243561] transition-colors disabled:opacity-40"
+                className="mt-4 w-full bg-[#02210C] text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-[#033a12] transition-colors disabled:opacity-40"
               >
                 Generate Proposal
               </button>
@@ -174,7 +174,7 @@ export default function NewProposalPage() {
       {/* Step 3 — generating */}
       {step === 3 && (
         <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-          <div className="w-12 h-12 border-2 border-[#1a2744] border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+          <div className="w-12 h-12 border-2 border-[#02210C] border-t-transparent rounded-full animate-spin mx-auto mb-5" />
           <p className="font-medium text-gray-900 mb-1">{generatingStatus}</p>
           <p className="text-sm text-gray-500">This takes about 60 seconds.</p>
         </div>

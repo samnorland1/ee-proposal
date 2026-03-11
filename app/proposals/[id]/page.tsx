@@ -66,13 +66,13 @@ function ScreenshotManager({ proposal, onChange, onCaptionChange }: {
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/50">
         <div className="flex items-center gap-2">
-          <div className="w-0.5 h-4 bg-[#1a2744] rounded-full" />
+          <div className="w-0.5 h-4 bg-[#02210C] rounded-full" />
           <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Screenshots</h3>
           <span className="text-xs text-gray-400">({current.length})</span>
         </div>
         <button
           onClick={() => setOpen(o => !o)}
-          className="text-xs text-[#1a2744] hover:underline font-medium"
+          className="text-xs text-[#02210C] hover:underline font-medium"
         >
           {open ? 'Close' : 'Add'}
         </button>
@@ -93,7 +93,7 @@ function ScreenshotManager({ proposal, onChange, onCaptionChange }: {
                   onChange={e => setCaptionDraft(e.target.value)}
                   onBlur={() => saveCaption(src)}
                   onKeyDown={e => { if (e.key === 'Enter') saveCaption(src); if (e.key === 'Escape') setEditingCaption(null); }}
-                  className="w-full text-sm border-b border-[#1a2744] outline-none py-0.5 bg-transparent"
+                  className="w-full text-sm border-b border-[#02210C] outline-none py-0.5 bg-transparent"
                 />
               ) : generatingCaption === src ? (
                 <span className="text-sm text-gray-400 italic flex items-center gap-1">
@@ -106,7 +106,7 @@ function ScreenshotManager({ proposal, onChange, onCaptionChange }: {
               ) : (
                 <button
                   onClick={() => startEditCaption(src)}
-                  className="text-sm text-gray-700 truncate text-left hover:text-[#1a2744] group flex items-center gap-1"
+                  className="text-sm text-gray-700 truncate text-left hover:text-[#02210C] group flex items-center gap-1"
                   title="Click to edit caption"
                 >
                   <span className="truncate">{captions[src] ?? captionFromPath(src)}</span>
@@ -134,12 +134,12 @@ function ScreenshotManager({ proposal, onChange, onCaptionChange }: {
                       <button
                         key={file}
                         onClick={() => selected ? remove(file) : add(file)}
-                        className={`relative group rounded border-2 overflow-hidden transition-colors ${selected ? 'border-[#1a2744]' : 'border-gray-200 hover:border-gray-400'}`}
+                        className={`relative group rounded border-2 overflow-hidden transition-colors ${selected ? 'border-[#02210C]' : 'border-gray-200 hover:border-gray-400'}`}
                         title={captions[file] ?? captionFromPath(file)}
                       >
                         <img src={screenshotSrc(file)} alt="" className="w-full h-16 object-cover" />
                         {selected && (
-                          <div className="absolute inset-0 bg-[#1a2744]/40 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-[#02210C]/40 flex items-center justify-center">
                             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
@@ -432,7 +432,7 @@ export default function ProposalPage() {
                 if (e.key === 'Enter') { saveClientName(clientNameDraft); setEditingClientName(false); }
                 if (e.key === 'Escape') setEditingClientName(false);
               }}
-              className="text-2xl font-bold text-gray-900 border-b-2 border-[#1a2744] outline-none bg-transparent"
+              className="text-2xl font-bold text-gray-900 border-b-2 border-[#02210C] outline-none bg-transparent"
             />
           ) : (
             <button
@@ -458,7 +458,7 @@ export default function ProposalPage() {
                   if (e.key === 'Enter') { saveProjectTitle(projectTitleDraft); setEditingProjectTitle(false); }
                   if (e.key === 'Escape') setEditingProjectTitle(false);
                 }}
-                className="text-sm text-gray-600 border-b border-[#1a2744] outline-none bg-transparent w-72"
+                className="text-sm text-gray-600 border-b border-[#02210C] outline-none bg-transparent w-72"
                 placeholder="Project title..."
               />
             ) : (
@@ -486,7 +486,7 @@ export default function ProposalPage() {
           {saving && <span className="text-xs text-gray-400">Saving...</span>}
           <a
             href={`/proposals/${id}/preview`}
-            className="border border-[#1a2744] text-[#1a2744] text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1a2744]/5 transition-colors flex items-center gap-2"
+            className="border border-[#02210C] text-[#02210C] text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#02210C]/5 transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -497,7 +497,7 @@ export default function ProposalPage() {
           <button
             onClick={downloadPDF}
             disabled={downloading}
-            className="bg-[#1a2744] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#243561] transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="bg-[#02210C] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#033a12] transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {downloading ? (
               <>
@@ -535,7 +535,7 @@ export default function ProposalPage() {
           <div key={key} className={`bg-white border border-gray-200 rounded-xl overflow-hidden ${isHidden ? 'opacity-50' : ''}`}>
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="w-0.5 h-4 bg-[#1a2744] rounded-full shrink-0" />
+                <div className="w-0.5 h-4 bg-[#02210C] rounded-full shrink-0" />
                 {editingHeadline === key ? (
                   <input
                     autoFocus
@@ -552,7 +552,7 @@ export default function ProposalPage() {
                       }
                       if (e.key === 'Escape') setEditingHeadline(null);
                     }}
-                    className="text-xs font-semibold text-gray-700 uppercase tracking-wider bg-white border border-[#1a2744]/30 rounded px-2 py-0.5 outline-none w-48"
+                    className="text-xs font-semibold text-gray-700 uppercase tracking-wider bg-white border border-[#02210C]/30 rounded px-2 py-0.5 outline-none w-48"
                   />
                 ) : (
                   <button
@@ -588,7 +588,7 @@ export default function ProposalPage() {
                         setDraft(proposal.sections[key]);
                       }
                     }}
-                    className="text-xs text-[#1a2744] hover:underline font-medium"
+                    className="text-xs text-[#02210C] hover:underline font-medium"
                   >
                     {editing === key ? 'Save' : 'Edit'}
                   </button>
