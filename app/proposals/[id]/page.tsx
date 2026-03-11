@@ -415,10 +415,10 @@ export default function ProposalPage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-4 md:p-8 max-w-4xl overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
+      <div className="flex flex-col gap-3 mb-6 md:flex-row md:items-start md:justify-between md:mb-8">
+        <div className="min-w-0">
           <a href="/proposals" className="text-xs text-gray-400 hover:text-gray-600 mb-2 block">
             ← All Proposals
           </a>
@@ -482,11 +482,11 @@ export default function ProposalPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           {saving && <span className="text-xs text-gray-400">Saving...</span>}
           <a
             href={`/proposals/${id}/preview`}
-            className="border border-[#02210C] text-[#02210C] text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#02210C]/5 transition-colors flex items-center gap-2"
+            className="border border-[#02210C] text-[#02210C] text-sm font-medium px-3 py-2 rounded-lg hover:bg-[#02210C]/5 transition-colors flex items-center gap-1.5"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
