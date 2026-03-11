@@ -105,8 +105,8 @@ export function ProposalList({ proposals }: { proposals: Proposal[] }) {
   return (
     <>
       {/* ── Mobile: filter tabs + single column ── */}
-      <div className="md:hidden">
-        <div className="flex gap-2 mb-4">
+      <div className="md:hidden overflow-hidden">
+        <div className="flex gap-2 mb-4 w-full">
           {COLUMNS.map((col) => {
             const count = getCards(col).length;
             const active = activeCol === col.id;
