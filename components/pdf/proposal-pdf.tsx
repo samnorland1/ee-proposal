@@ -347,6 +347,11 @@ export function ProposalPDF({ proposal, avatarPath, screenshotAbsPaths, screensh
           </View>
         )}
 
+        {/* Badge */}
+        <Text style={{ fontSize: 9, color: ORANGE, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 24, textAlign: 'center' }}>
+          100% JSS · Top Rated Plus
+        </Text>
+
         {/* Service label */}
         <Text style={s.coverServiceLabel}>
           {proposal.extractedData?.service_type || 'Email Marketing'}
