@@ -251,8 +251,8 @@ function Section({ title, content, small }: {
   small?: boolean;
 }) {
   return (
-    <View style={s.section} wrap={false}>
-      <View style={s.sectionHeader}>
+    <View style={s.section}>
+      <View style={s.sectionHeader} wrap={false}>
         <Text style={s.sectionLabel}>{title}</Text>
       </View>
       <View style={s.sectionContent}>
@@ -278,7 +278,7 @@ function PricingSection({ content, total }: { content: string; total: string }) 
   });
 
   return (
-    <View style={s.section} wrap={false}>
+    <View style={s.section}>
       <View style={s.sectionHeader}>
         <Text style={s.sectionLabel}>Pricing</Text>
       </View>
@@ -305,7 +305,7 @@ function PricingSection({ content, total }: { content: string; total: string }) 
 function StaticSection({ title, content }: { title: string; content: string }) {
   return (
     <View style={s.section}>
-      <View style={s.sectionHeader}>
+      <View style={s.sectionHeader} wrap={false}>
         <Text style={s.sectionLabel}>{title}</Text>
       </View>
       <View style={s.sectionContent}>
