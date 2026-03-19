@@ -160,7 +160,7 @@ export function ProposalPreview({ proposal }: ProposalPreviewProps) {
 
   return (
     <div className="bg-[#111111] min-h-screen py-12 px-4">
-      <div className="mx-auto shadow-2xl overflow-hidden" style={{ maxWidth: 960 }}>
+      <div className="mx-auto shadow-2xl" style={{ maxWidth: 960 }}>
 
         {/* ── COVER ──────────────────────────────────────────────── */}
         <div className="bg-[#0D0D0D] flex flex-col items-center text-center px-16 pt-20 pb-24" style={{ minHeight: '90vh' }}>
