@@ -47,7 +47,7 @@ export async function getTranscriptsReadyForProposal(): Promise<NotionTranscript
     body: JSON.stringify({
       filter: {
         property: 'Status',
-        status: { equals: 'Ready for Proposal' },
+        status: { equals: 'Ready For Proposal' },
       },
       sorts: [{ timestamp: 'created_time', direction: 'descending' }],
     }),
