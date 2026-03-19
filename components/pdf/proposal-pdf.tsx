@@ -348,7 +348,7 @@ export function ProposalPDF({ proposal, avatarPath, screenshotAbsPaths, screensh
         )}
 
         {/* Badge */}
-        <Text style={{ fontSize: 9, color: ORANGE, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 24, textAlign: 'center' }}>
+        <Text style={{ fontSize: 9, color: '#60A5FA', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 24, textAlign: 'center' }}>
           100% JSS · Top Rated Plus
         </Text>
 
