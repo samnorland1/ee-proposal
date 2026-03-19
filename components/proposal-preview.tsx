@@ -174,6 +174,11 @@ export function ProposalPreview({ proposal }: ProposalPreviewProps) {
             />
           </div>
 
+          {/* Badge */}
+          <p className="text-orange-500 text-xs font-bold tracking-[0.3em] uppercase mb-6">
+            100% JSS · Top Rated Plus
+          </p>
+
           {/* Service label */}
           <p className="text-orange-500 text-xs font-bold tracking-[0.45em] uppercase mb-10">
             {proposal.extractedData?.service_type || 'Email Marketing'}
