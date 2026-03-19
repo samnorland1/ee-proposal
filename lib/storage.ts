@@ -72,12 +72,22 @@ export async function createProposal(proposal: Proposal): Promise<Proposal> {
 }
 
 export async function updateProposal(id: string, updates: Partial<Proposal>): Promise<Proposal> {
-  const existing = await getProposalById(id);
-  if (!existing) throw new Error('Proposal not found');
-  const merged = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+  // Map only the provided fields directly — no read-first to avoid race conditions
+  const dbUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (updates.status !== undefined) dbUpdates.status = updates.status;
+  if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName;
+  if (updates.clientEmail !== undefined) dbUpdates.client_email = updates.clientEmail;
+  if (updates.clientContact !== undefined) dbUpdates.client_contact = updates.clientContact;
+  if (updates.pricing !== undefined) dbUpdates.pricing = updates.pricing;
+  if (updates.projectTitle !== undefined) dbUpdates.project_title = updates.projectTitle;
+  if (updates.extractedData !== undefined) dbUpdates.extracted_data = updates.extractedData;
+  if (updates.sections !== undefined) dbUpdates.sections = updates.sections;
+  if (updates.screenshots !== undefined) dbUpdates.screenshots = updates.screenshots;
+  if (updates.screenshotCaptions !== undefined) dbUpdates.screenshot_captions = updates.screenshotCaptions;
+
   const { data, error } = await supabase
     .from('proposals')
-    .update(toRow(merged))
+    .update(dbUpdates)
     .eq('id', id)
     .select()
     .single();
