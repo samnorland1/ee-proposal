@@ -75,7 +75,7 @@ export async function generateCaption(relativePath: string): Promise<string> {
   const filename = parts[2]?.replace(/\.[^.]+$/, '') ?? '';
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-opus-4-6',
     max_tokens: 80,
     messages: [
       {
@@ -114,7 +114,7 @@ export async function generateCaptions(relativePaths: string[]): Promise<Record<
   }).join('\n');
 
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-opus-4-6',
     max_tokens: 400,
     messages: [
       {

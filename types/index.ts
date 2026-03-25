@@ -91,6 +91,7 @@ export interface Proposal {
   clientContact: string;
   pricing: string;
   projectTitle?: string;
+  extraContext?: string;
   extractedData: ExtractedData;
   sections: ProposalSections;
   screenshots?: string[]; // paths relative to public/, e.g. "screenshots/klaviyo/img.png"

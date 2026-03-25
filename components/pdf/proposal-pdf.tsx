@@ -185,6 +185,7 @@ const s = StyleSheet.create({
   },
   screenshotImg: {
     width: '100%',
+    maxHeight: 240,
     borderRadius: 6,
     marginTop: 10,
     marginBottom: 3,

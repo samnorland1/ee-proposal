@@ -258,6 +258,8 @@ export default function ProposalPage() {
   const [projectTitleDraft, setProjectTitleDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [extraContext, setExtraContext] = useState('');
+  const [rewriting, setRewriting] = useState(false);
 
   const saveScreenshots = useCallback(
     async (screenshots: string[]) => {
@@ -290,8 +292,40 @@ export default function ProposalPage() {
   useEffect(() => {
     fetch(`/api/proposals/${id}`)
       .then((r) => r.json())
-      .then((d) => setProposal(d.proposal));
+      .then((d) => {
+        setProposal(d.proposal);
+        setExtraContext(d.proposal.extraContext ?? '');
+      });
   }, [id]);
+
+  const saveExtraContext = useCallback(
+    async (value: string) => {
+      if (!proposal) return;
+      setProposal({ ...proposal, extraContext: value });
+      await fetch(`/api/proposals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extraContext: value }),
+      });
+    },
+    [proposal, id]
+  );
+
+  const rewriteProposal = useCallback(async () => {
+    if (!extraContext.trim()) return;
+    setRewriting(true);
+    try {
+      const res = await fetch(`/api/proposals/${id}/rewrite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extraContext }),
+      });
+      const data = await res.json();
+      if (data.proposal) setProposal(data.proposal);
+    } finally {
+      setRewriting(false);
+    }
+  }, [extraContext, id]);
 
   const save = useCallback(
     async (key: StringSectionKey, value: string) => {
@@ -397,6 +431,12 @@ export default function ProposalPage() {
     a.click();
     URL.revokeObjectURL(url);
     setDownloading(false);
+  }
+
+  async function duplicateProposal() {
+    const res = await fetch(`/api/proposals/${id}/duplicate`, { method: 'POST' });
+    const data = await res.json();
+    if (data.proposal) router.push(`/proposals/${data.proposal.id}`);
   }
 
   async function deleteProposal() {
@@ -517,11 +557,52 @@ export default function ProposalPage() {
             )}
           </button>
           <button
+            onClick={duplicateProposal}
+            className="text-sm text-gray-400 hover:text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            Duplicate
+          </button>
+          <button
             onClick={deleteProposal}
             className="text-sm text-gray-400 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
           >
             Delete
           </button>
+        </div>
+      </div>
+
+      {/* Extra Context */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-4">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/50">
+          <div className="flex items-center gap-2">
+            <div className="w-0.5 h-4 bg-[#02210C] rounded-full" />
+            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Extra Context</h3>
+          </div>
+          <button
+            onClick={rewriteProposal}
+            disabled={rewriting || !extraContext.trim()}
+            className="text-xs font-medium bg-[#02210C] text-white px-3 py-1.5 rounded-lg hover:bg-[#033a12] transition-colors disabled:opacity-40 flex items-center gap-1.5"
+          >
+            {rewriting ? (
+              <>
+                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Rewriting...
+              </>
+            ) : 'Rewrite Proposal'}
+          </button>
+        </div>
+        <div className="px-5 py-4">
+          <textarea
+            value={extraContext}
+            onChange={(e) => setExtraContext(e.target.value)}
+            onBlur={() => saveExtraContext(extraContext)}
+            rows={3}
+            placeholder="e.g. Follow-up call: they now want quarterly reporting, budget increased to $5k/month"
+            className="w-full text-sm text-gray-700 resize-none outline-none leading-relaxed placeholder:text-gray-400"
+          />
         </div>
       </div>
 

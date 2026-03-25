@@ -75,7 +75,7 @@ function parseSections(text: string): ProposalSections {
 
 export async function generateProjectTitle(extractedData: ExtractedData): Promise<string> {
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-opus-4-6',
     max_tokens: 60,
     messages: [{
       role: 'user',
@@ -92,10 +92,11 @@ Scope: ${extractedData.project_scope.slice(0, 3).join(', ')}`,
 
 export async function generateProposal(
   extractedData: ExtractedData,
-  pricing: string
+  pricing: string,
+  extraContext?: string
 ): Promise<ProposalSections> {
   const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
+    model: 'claude-opus-4-6',
     max_tokens: 8192,
     system: PROPOSAL_WRITER_SOP,
     messages: [
@@ -106,7 +107,7 @@ export async function generateProposal(
 EXTRACTED DATA:
 ${JSON.stringify(extractedData, null, 2)}
 
-PRICING: ${pricing}
+PRICING: ${pricing}${extraContext ? `\n\nEXTRA CONTEXT (incorporate these updates into the rewrite):\n${extraContext}` : ''}
 
 Write all 7 sections following the SOP guidelines. Use the exact section headers specified in the Output Format section so they can be parsed reliably.`,
       },

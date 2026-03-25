@@ -3,11 +3,10 @@ import { getProposalById } from '@/lib/storage';
 import { renderToBuffer, DocumentProps } from '@react-pdf/renderer';
 import { createElement, ReactElement } from 'react';
 import { ProposalPDF } from '@/components/pdf/proposal-pdf';
-import { screenshotToAbsPath } from '@/lib/screenshots';
 import fs from 'fs';
 import path from 'path';
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const proposal = await getProposalById(id);
   if (!proposal) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -16,9 +15,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const avatarPath = path.join(process.cwd(), 'public', 'Circle Headshots.png');
     const avatar = fs.existsSync(avatarPath) ? avatarPath : null;
 
-    const screenshotAbsPaths = (proposal.screenshots ?? [])
-      .map(screenshotToAbsPath)
-      .filter((p) => fs.existsSync(p));
+    // Use public URLs instead of file paths so react-pdf fetches over HTTP,
+    // bypassing Vercel serverless bundle size limits on the screenshots directory.
+    const base = `${req.nextUrl.protocol}//${req.nextUrl.host}`;
+    const screenshotAbsPaths = (proposal.screenshots ?? []).map(
+      (rel) => `${base}/${rel}`
+    );
 
     const screenshotCaptions = proposal.screenshotCaptions ?? {};
     const element = createElement(ProposalPDF, { proposal, avatarPath: avatar, screenshotAbsPaths, screenshotCaptions }) as ReactElement<DocumentProps>;

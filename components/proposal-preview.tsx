@@ -236,7 +236,7 @@ export function ProposalPreview({ proposal }: ProposalPreviewProps) {
                         <img
                           src={screenshotSrc(src)}
                           alt={caption}
-                          className="w-full rounded-2xl border border-white/10 object-cover"
+                          className="w-full rounded-2xl border border-white/10"
                         />
                         <figcaption className="text-gray-500 text-base mt-3 text-center">
                           {caption}
