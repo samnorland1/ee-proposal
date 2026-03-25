@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // bypassing Vercel serverless bundle size limits on the screenshots directory.
     const base = `${req.nextUrl.protocol}//${req.nextUrl.host}`;
     const screenshotAbsPaths = (proposal.screenshots ?? []).map(
-      (rel) => `${base}/${rel}`
+      (rel) => `${base}/${rel.split('/').map(encodeURIComponent).join('/')}`
     );
 
     const screenshotCaptions = proposal.screenshotCaptions ?? {};
