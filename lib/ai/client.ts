@@ -49,11 +49,16 @@ export async function complete(options: CompletionOptions): Promise<string> {
       throw new Error('No text in response');
     }
     return block.text;
-  } catch (err) {
+  } catch (err: unknown) {
+    const errObj = err as { status?: number; error?: { type?: string } };
+    const errMsg = err instanceof Error ? err.message : String(err);
+
     const isOverloaded =
-      (err as { status?: number })?.status === 529 ||
-      (err instanceof Error && err.message.includes('529')) ||
-      (err instanceof Error && err.message.includes('overloaded'));
+      errObj?.status === 529 ||
+      errObj?.error?.type === 'overloaded_error' ||
+      errMsg.includes('529') ||
+      errMsg.includes('overloaded') ||
+      errMsg.includes('Overloaded');
 
     if (!isOverloaded) {
       throw err;
