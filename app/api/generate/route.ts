@@ -11,7 +11,7 @@ export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   try {
-    const { pageId, pricing, extraContext } = await req.json();
+    const { pageId, pricing } = await req.json();
     if (!pageId || !pricing) {
       return NextResponse.json({ error: 'pageId and pricing are required' }, { status: 400 });
     }
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     // Step 3: Generate proposal sections + project title in parallel
     const [sections, projectTitle] = await Promise.all([
-      generateProposal(extractedData, pricing, extraContext),
+      generateProposal(extractedData, pricing),
       generateProjectTitle(extractedData),
     ]);
 
@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
       clientContact: extractedData.client_contact || transcript.clientContact,
       pricing,
       projectTitle,
-      extraContext,
       extractedData,
       sections,
       screenshots,

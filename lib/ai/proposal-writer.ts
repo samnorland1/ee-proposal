@@ -1,7 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { PROPOSAL_WRITER_SOP } from '@/lib/prompts/sop';
 import { ExtractedData, ProposalSections } from '@/types';
-import { withRetry } from './retry';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -75,8 +74,8 @@ function parseSections(text: string): ProposalSections {
 }
 
 export async function generateProjectTitle(extractedData: ExtractedData): Promise<string> {
-  const response = await withRetry(() => anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+  const response = await anthropic.messages.create({
+    model: 'claude-opus-4-6',
     max_tokens: 60,
     messages: [{
       role: 'user',
@@ -86,7 +85,7 @@ Service: ${extractedData.service_type}
 Tools: ${extractedData.technical_context.current_tools.join(', ')}
 Scope: ${extractedData.project_scope.slice(0, 3).join(', ')}`,
     }],
-  }));
+  });
   const block = response.content.find((b) => b.type === 'text');
   return block?.type === 'text' ? block.text.trim() : extractedData.service_type;
 }
@@ -96,8 +95,8 @@ export async function generateProposal(
   pricing: string,
   extraContext?: string
 ): Promise<ProposalSections> {
-  const response = await withRetry(() => anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+  const response = await anthropic.messages.create({
+    model: 'claude-opus-4-6',
     max_tokens: 8192,
     system: PROPOSAL_WRITER_SOP,
     messages: [
@@ -113,7 +112,7 @@ PRICING: ${pricing}${extraContext ? `\n\nEXTRA CONTEXT (incorporate these update
 Write all 7 sections following the SOP guidelines. Use the exact section headers specified in the Output Format section so they can be parsed reliably.`,
       },
     ],
-  }));
+  });
 
   const textBlock = response.content.find((b) => b.type === 'text');
   if (!textBlock || textBlock.type !== 'text') {
