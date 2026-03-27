@@ -1,8 +1,22 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let anthropic: Anthropic | null = null;
+let openai: OpenAI | null = null;
+
+function getAnthropic() {
+  if (!anthropic) {
+    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return anthropic;
+}
+
+function getOpenAI() {
+  if (!openai) {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openai;
+}
 
 interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -20,7 +34,7 @@ export async function complete(options: CompletionOptions): Promise<string> {
 
   // Try Claude first
   try {
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: 'claude-opus-4-6',
       max_tokens: maxTokens,
       system: system,
@@ -53,7 +67,7 @@ export async function complete(options: CompletionOptions): Promise<string> {
       openaiMessages.push({ role: m.role, content: m.content });
     }
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: 'gpt-4o',
       max_tokens: maxTokens,
       messages: openaiMessages,
