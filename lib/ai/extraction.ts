@@ -7,7 +7,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function extractFromTranscript(transcript: string): Promise<ExtractedData> {
   const response = await withRetry(() => anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     system: EXTRACTION_PROMPT,
     messages: [
