@@ -1,11 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { EXTRACTION_PROMPT } from '@/lib/prompts/extraction-prompt';
 import { ExtractedData } from '@/types';
+import { withRetry } from './retry';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function extractFromTranscript(transcript: string): Promise<ExtractedData> {
-  const response = await anthropic.messages.create({
+  const response = await withRetry(() => anthropic.messages.create({
     model: 'claude-opus-4-6',
     max_tokens: 4096,
     system: EXTRACTION_PROMPT,
@@ -15,7 +16,7 @@ export async function extractFromTranscript(transcript: string): Promise<Extract
         content: `Extract structured information from this meeting transcript:\n\nTRANSCRIPT:\n${transcript}\n\nReturn ONLY a valid JSON object with no additional text.`,
       },
     ],
-  });
+  }));
 
   const textBlock = response.content.find((b) => b.type === 'text');
   if (!textBlock || textBlock.type !== 'text') {
