@@ -76,7 +76,7 @@ function parseSections(text: string): ProposalSections {
 
 export async function generateProjectTitle(extractedData: ExtractedData): Promise<string> {
   const response = await withRetry(() => anthropic.messages.create({
-    model: 'claude-opus-4-6',
+    model: 'claude-sonnet-4-20250514',
     max_tokens: 60,
     messages: [{
       role: 'user',
@@ -97,7 +97,7 @@ export async function generateProposal(
   extraContext?: string
 ): Promise<ProposalSections> {
   const response = await withRetry(() => anthropic.messages.create({
-    model: 'claude-opus-4-6',
+    model: 'claude-sonnet-4-20250514',
     max_tokens: 8192,
     system: PROPOSAL_WRITER_SOP,
     messages: [
