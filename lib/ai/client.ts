@@ -13,6 +13,9 @@ function getAnthropic() {
 
 function getOpenAI() {
   if (!openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI fallback unavailable - no API key configured');
+    }
     openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
   return openai;
