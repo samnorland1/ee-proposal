@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Proposal } from '@/types';
-
-type Column = 'draft' | 'won' | 'lost';
+import { useRouter } from 'next/navigation';
+import { Proposal, ProposalStatus } from '@/types';
 
 const COLUMNS: {
-  id: Column;
+  id: ProposalStatus;
   label: string;
-  statuses: Proposal['status'][];
   color: string;
   bg: string;
   border: string;
@@ -17,15 +15,20 @@ const COLUMNS: {
   {
     id: 'draft',
     label: 'Draft',
-    statuses: ['draft', 'ready', 'sent'],
     color: 'text-yellow-700',
     bg: 'bg-yellow-50',
     border: 'border-yellow-200',
   },
   {
+    id: 'sent',
+    label: 'Sent',
+    color: 'text-purple-700',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+  },
+  {
     id: 'won',
     label: 'Won',
-    statuses: ['won'],
     color: 'text-green-800',
     bg: 'bg-green-50',
     border: 'border-green-200',
@@ -33,7 +36,6 @@ const COLUMNS: {
   {
     id: 'lost',
     label: 'Lost',
-    statuses: ['lost'],
     color: 'text-red-700',
     bg: 'bg-red-50',
     border: 'border-red-200',
@@ -55,11 +57,17 @@ function StatusBadge({ status }: { status: Proposal['status'] }) {
   );
 }
 
-function ProposalCard({ proposal }: { proposal: Proposal }) {
+function ProposalCard({ proposal, onDragStart }: { proposal: Proposal; onDragStart?: (id: string) => void }) {
   return (
     <Link
       href={`/proposals/${proposal.id}`}
-      className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-[#02210C]/30 hover:shadow-sm transition-all"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('proposalId', proposal.id);
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart?.(proposal.id);
+      }}
+      className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-[#02210C]/30 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing"
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <h3 className="font-semibold text-gray-900 text-sm leading-snug">{proposal.clientName}</h3>
@@ -82,11 +90,53 @@ function ProposalCard({ proposal }: { proposal: Proposal }) {
   );
 }
 
-export function ProposalList({ proposals }: { proposals: Proposal[] }) {
-  const [activeCol, setActiveCol] = useState<Column>('draft');
+export function ProposalList({ proposals: initialProposals }: { proposals: Proposal[] }) {
+  const router = useRouter();
+  const [proposals, setProposals] = useState(initialProposals);
+  const [activeCol, setActiveCol] = useState<ProposalStatus>('draft');
+  const [dragOverCol, setDragOverCol] = useState<ProposalStatus | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  const getCards = (col: (typeof COLUMNS)[0]) =>
-    proposals.filter((p) => col.statuses.includes(p.status));
+  const getCards = (status: ProposalStatus) =>
+    proposals.filter((p) => p.status === status);
+
+  const handleDrop = async (e: React.DragEvent, newStatus: ProposalStatus) => {
+    e.preventDefault();
+    setDragOverCol(null);
+    setDraggingId(null);
+
+    const proposalId = e.dataTransfer.getData('proposalId');
+    if (!proposalId) return;
+
+    const proposal = proposals.find((p) => p.id === proposalId);
+    if (!proposal || proposal.status === newStatus) return;
+
+    // Optimistic update
+    setProposals((prev) =>
+      prev.map((p) => (p.id === proposalId ? { ...p, status: newStatus } : p))
+    );
+
+    // API call
+    try {
+      await fetch(`/api/proposals/${proposalId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      router.refresh();
+    } catch {
+      // Revert on error
+      setProposals((prev) =>
+        prev.map((p) => (p.id === proposalId ? { ...p, status: proposal.status } : p))
+      );
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, status: ProposalStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverCol(status);
+  };
 
   if (proposals.length === 0) {
     return (
@@ -106,15 +156,15 @@ export function ProposalList({ proposals }: { proposals: Proposal[] }) {
     <>
       {/* ── Mobile: filter tabs + single column ── */}
       <div className="md:hidden overflow-hidden">
-        <div className="flex gap-2 mb-4 w-full">
+        <div className="flex gap-2 mb-4 w-full overflow-x-auto">
           {COLUMNS.map((col) => {
-            const count = getCards(col).length;
+            const count = getCards(col.id).length;
             const active = activeCol === col.id;
             return (
               <button
                 key={col.id}
                 onClick={() => setActiveCol(col.id)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                className={`flex-1 min-w-[70px] py-2 rounded-lg text-xs font-medium border transition-colors ${
                   active
                     ? `${col.bg} ${col.color} ${col.border}`
                     : 'bg-white text-gray-500 border-gray-200'
@@ -129,22 +179,29 @@ export function ProposalList({ proposals }: { proposals: Proposal[] }) {
           })}
         </div>
         <div className="space-y-3">
-          {getCards(COLUMNS.find((c) => c.id === activeCol)!).length === 0 ? (
+          {getCards(activeCol).length === 0 ? (
             <p className="text-center text-sm text-gray-400 py-10">No proposals here</p>
           ) : (
-            getCards(COLUMNS.find((c) => c.id === activeCol)!).map((p) => (
+            getCards(activeCol).map((p) => (
               <ProposalCard key={p.id} proposal={p} />
             ))
           )}
         </div>
       </div>
 
-      {/* ── Desktop: 3-column Kanban ── */}
-      <div className="hidden md:grid md:grid-cols-3 gap-5">
+      {/* ── Desktop: 4-column Kanban with drag & drop ── */}
+      <div className="hidden md:grid md:grid-cols-4 gap-4">
         {COLUMNS.map((col) => {
-          const cards = getCards(col);
+          const cards = getCards(col.id);
+          const isDragOver = dragOverCol === col.id;
           return (
-            <div key={col.id} className="flex flex-col min-w-0">
+            <div
+              key={col.id}
+              className="flex flex-col min-w-0"
+              onDragOver={(e) => handleDragOver(e, col.id)}
+              onDragLeave={() => setDragOverCol(null)}
+              onDrop={(e) => handleDrop(e, col.id)}
+            >
               <div className={`flex items-center justify-between px-3 py-2 rounded-lg mb-3 border ${col.bg} ${col.border}`}>
                 <span className={`text-xs font-semibold uppercase tracking-wider ${col.color}`}>
                   {col.label}
@@ -153,13 +210,28 @@ export function ProposalList({ proposals }: { proposals: Proposal[] }) {
                   {cards.length}
                 </span>
               </div>
-              <div className="space-y-3 flex-1">
+              <div
+                className={`space-y-3 flex-1 min-h-[200px] rounded-xl p-2 -m-2 transition-colors ${
+                  isDragOver ? 'bg-gray-100 ring-2 ring-[#02210C]/30 ring-dashed' : ''
+                }`}
+              >
                 {cards.length === 0 ? (
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl py-8 text-center">
-                    <p className="text-xs text-gray-400">No proposals</p>
+                  <div className={`border-2 border-dashed rounded-xl py-8 text-center transition-colors ${
+                    isDragOver ? 'border-[#02210C]/30 bg-[#02210C]/5' : 'border-gray-200'
+                  }`}>
+                    <p className="text-xs text-gray-400">
+                      {isDragOver ? 'Drop here' : 'No proposals'}
+                    </p>
                   </div>
                 ) : (
-                  cards.map((p) => <ProposalCard key={p.id} proposal={p} />)
+                  cards.map((p) => (
+                    <div
+                      key={p.id}
+                      className={`transition-opacity ${draggingId === p.id ? 'opacity-50' : ''}`}
+                    >
+                      <ProposalCard proposal={p} onDragStart={setDraggingId} />
+                    </div>
+                  ))
                 )}
               </div>
             </div>
