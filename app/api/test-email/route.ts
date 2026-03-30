@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
@@ -9,7 +9,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Require secret in URL: /api/test-email?secret=xxx
+  const secret = req.nextUrl.searchParams.get('secret');
+  if (secret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
