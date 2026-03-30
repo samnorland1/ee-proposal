@@ -13,6 +13,7 @@ export default function NewProposalPage() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<NotionTranscript | null>(null);
   const [pricing, setPricing] = useState('');
+  const [extraContext, setExtraContext] = useState('');
   const [error, setError] = useState('');
   const [generatingStatus, setGeneratingStatus] = useState('');
 
@@ -41,7 +42,7 @@ export default function NewProposalPage() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageId: selected.pageId, pricing }),
+        body: JSON.stringify({ pageId: selected.pageId, pricing, extraContext: extraContext.trim() || undefined }),
       });
 
       setGeneratingStatus('Writing proposal sections...');
@@ -158,6 +159,17 @@ export default function NewProposalPage() {
                 onChange={(e) => setPricing(e.target.value)}
                 placeholder="e.g. $5,000"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#02210C] focus:ring-1 focus:ring-[#02210C]/20"
+              />
+
+              <h3 className="text-sm font-semibold text-gray-900 mt-5 mb-2">
+                Extra context <span className="font-normal text-gray-400">(optional)</span>
+              </h3>
+              <textarea
+                value={extraContext}
+                onChange={(e) => setExtraContext(e.target.value)}
+                placeholder="Add any info not in the meeting notes — scope changes, pricing details, specific requirements..."
+                rows={4}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#02210C] focus:ring-1 focus:ring-[#02210C]/20 resize-none"
               />
               <button
                 onClick={generate}

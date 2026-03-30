@@ -32,41 +32,71 @@ interface CompletionOptions {
   maxTokens: number;
 }
 
+function isOverloadedError(err: unknown): boolean {
+  const errObj = err as { status?: number; error?: { type?: string } };
+  const errMsg = err instanceof Error ? err.message : String(err);
+  return (
+    errObj?.status === 529 ||
+    errObj?.error?.type === 'overloaded_error' ||
+    errMsg.includes('529') ||
+    errMsg.includes('overloaded') ||
+    errMsg.includes('Overloaded')
+  );
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function callClaudeWithRetry(
+  system: string | undefined,
+  messages: Message[],
+  maxTokens: number,
+  maxRetries = 5
+): Promise<string> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await getAnthropic().messages.create({
+        model: 'claude-opus-4-6',
+        max_tokens: maxTokens,
+        system: system,
+        messages: messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      });
+
+      const block = response.content.find(b => b.type === 'text');
+      if (!block || block.type !== 'text') {
+        throw new Error('No text in response');
+      }
+      return block.text;
+    } catch (err: unknown) {
+      lastError = err;
+      if (!isOverloadedError(err)) {
+        throw err;
+      }
+      // Longer delays: 2s, 4s, 8s, 16s, 32s (up to ~1 min total wait)
+      const delay = Math.pow(2, attempt + 1) * 1000 + Math.random() * 2000;
+      console.log(`Claude overloaded (attempt ${attempt + 1}/${maxRetries}), retrying in ${Math.round(delay / 1000)}s...`);
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
+
 export async function complete(options: CompletionOptions): Promise<string> {
   const { system, messages, maxTokens } = options;
 
-  // Try Claude first
   try {
-    const response = await getAnthropic().messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: maxTokens,
-      system: system,
-      messages: messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    });
-
-    const block = response.content.find(b => b.type === 'text');
-    if (!block || block.type !== 'text') {
-      throw new Error('No text in response');
-    }
-    return block.text;
+    return await callClaudeWithRetry(system, messages, maxTokens);
   } catch (err: unknown) {
-    const errObj = err as { status?: number; error?: { type?: string } };
-    const errMsg = err instanceof Error ? err.message : String(err);
-
-    const isOverloaded =
-      errObj?.status === 529 ||
-      errObj?.error?.type === 'overloaded_error' ||
-      errMsg.includes('529') ||
-      errMsg.includes('overloaded') ||
-      errMsg.includes('Overloaded');
-
-    if (!isOverloaded) {
+    if (!isOverloadedError(err)) {
       throw err;
     }
 
-    console.log('Claude overloaded, falling back to OpenAI GPT-4o');
+    console.log('Claude still overloaded after retries, falling back to GPT-4o-mini');
 
-    // Fallback to OpenAI
     const openaiMessages: OpenAI.ChatCompletionMessageParam[] = [];
     if (system) {
       openaiMessages.push({ role: 'system', content: system });
@@ -76,7 +106,7 @@ export async function complete(options: CompletionOptions): Promise<string> {
     }
 
     const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       max_tokens: maxTokens,
       messages: openaiMessages,
     });

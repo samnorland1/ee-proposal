@@ -11,7 +11,7 @@ export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   try {
-    const { pageId, pricing } = await req.json();
+    const { pageId, pricing, extraContext } = await req.json();
     if (!pageId || !pricing) {
       return NextResponse.json({ error: 'pageId and pricing are required' }, { status: 400 });
     }
@@ -22,12 +22,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No transcript content found on this Notion page' }, { status: 400 });
     }
 
-    // Step 2: Extract structured data
-    const extractedData = await extractFromTranscript(transcript.transcript);
+    // Step 2: Extract structured data (include extra context if provided)
+    const extractedData = await extractFromTranscript(transcript.transcript, extraContext);
 
     // Step 3: Generate proposal sections + project title in parallel
     const [sections, projectTitle] = await Promise.all([
-      generateProposal(extractedData, pricing),
+      generateProposal(extractedData, pricing, extraContext),
       generateProjectTitle(extractedData),
     ]);
 
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       clientContact: extractedData.client_contact || transcript.clientContact,
       pricing,
       projectTitle,
+      extraContext: extraContext || undefined,
       extractedData,
       sections,
       screenshots,

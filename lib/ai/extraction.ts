@@ -2,13 +2,14 @@ import { EXTRACTION_PROMPT } from '@/lib/prompts/extraction-prompt';
 import { ExtractedData } from '@/types';
 import { complete } from './client';
 
-export async function extractFromTranscript(transcript: string): Promise<ExtractedData> {
+export async function extractFromTranscript(transcript: string, extraContext?: string): Promise<ExtractedData> {
+  const contextSection = extraContext ? `\n\nEXTRA CONTEXT (additional info not in the transcript — incorporate this):\n${extraContext}` : '';
   const text = await complete({
     system: EXTRACTION_PROMPT,
     messages: [
       {
         role: 'user',
-        content: `Extract structured information from this meeting transcript:\n\nTRANSCRIPT:\n${transcript}\n\nReturn ONLY a valid JSON object with no additional text.`,
+        content: `Extract structured information from this meeting transcript:\n\nTRANSCRIPT:\n${transcript}${contextSection}\n\nReturn ONLY a valid JSON object with no additional text.`,
       },
     ],
     maxTokens: 4096,
