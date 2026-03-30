@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import { getAllProposals } from '@/lib/storage';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const FOLLOW_UP_DAYS = 3;
-const REMINDER_EMAIL = process.env.REMINDER_EMAIL || 'sam@emailevolution.co';
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
 
 export async function GET(req: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -49,9 +54,9 @@ export async function GET(req: NextRequest) {
       )
       .join('\n\n');
 
-    const { error } = await resend.emails.send({
-      from: 'Proposal App <notifications@emailevolution.co>',
-      to: REMINDER_EMAIL,
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: process.env.GMAIL_USER,
       subject: `Follow-up Reminder: ${reminders.length} proposal${reminders.length > 1 ? 's' : ''} need attention`,
       text: `You have ${reminders.length} proposal${reminders.length > 1 ? 's' : ''} waiting for follow-up:\n\n${reminderList}\n\nDon't let these go cold!`,
       html: `
@@ -74,11 +79,6 @@ export async function GET(req: NextRequest) {
         </div>
       `,
     });
-
-    if (error) {
-      console.error('Resend error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
 
     return NextResponse.json({
       message: 'Reminders sent',

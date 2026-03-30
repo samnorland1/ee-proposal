@@ -14,10 +14,10 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
+    "nodemailer": "^8.0.4",
     "openai": "^6.33.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "resend": "^6.9.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "uuid": "^13.0.0"
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
