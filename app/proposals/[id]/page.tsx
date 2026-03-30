@@ -187,39 +187,46 @@ function StatusBadge({
     won: 'bg-green-100 text-green-800 border border-green-300',
     lost: 'bg-red-50 text-red-600 border border-red-200',
   };
-  const next: Record<Proposal['status'], Proposal['status']> = {
-    draft: 'ready',
-    ready: 'sent',
-    sent: 'draft',
-    won: 'draft',
-    lost: 'draft',
-  };
+
   return (
     <div className="flex items-center gap-1.5">
-      <button
-        onClick={() => onChange(next[status])}
-        className={`text-xs font-medium px-2.5 py-1 rounded-full cursor-pointer ${styles[status]}`}
-        title="Click to advance status"
-      >
+      {/* Current status badge */}
+      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${styles[status]}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
-      </button>
-      {status !== 'won' && status !== 'lost' && (
+      </span>
+
+      {/* Action buttons based on current status */}
+      {status === 'draft' && (
+        <button
+          onClick={() => onChange('sent')}
+          className="text-xs font-medium px-2 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
+        >
+          Mark Sent
+        </button>
+      )}
+      {status === 'sent' && (
         <>
           <button
             onClick={() => onChange('won')}
             className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-800 border border-green-300 hover:bg-green-200 transition-colors"
-            title="Mark as won"
           >
             Won
           </button>
           <button
             onClick={() => onChange('lost')}
             className="text-xs font-medium px-2 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
-            title="Mark as lost"
           >
             Lost
           </button>
         </>
+      )}
+      {(status === 'won' || status === 'lost') && (
+        <button
+          onClick={() => onChange('draft')}
+          className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 transition-colors"
+        >
+          Reopen
+        </button>
       )}
     </div>
   );
