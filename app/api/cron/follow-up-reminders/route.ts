@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
-      to: process.env.GMAIL_USER,
+      to: process.env.NOTIFICATION_EMAIL || process.env.GMAIL_USER,
       subject: `Follow-up Reminder: ${reminders.length} proposal${reminders.length > 1 ? 's' : ''} need attention`,
       text: `You have ${reminders.length} proposal${reminders.length > 1 ? 's' : ''} waiting for follow-up:\n\n${reminderList}\n\nDon't let these go cold!`,
       html: `
