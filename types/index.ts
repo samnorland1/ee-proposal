@@ -92,6 +92,7 @@ export interface Proposal {
   pricing: string;
   projectTitle?: string;
   extraContext?: string;
+  sentAt?: string; // ISO timestamp when status changed to 'sent'
   extractedData: ExtractedData;
   sections: ProposalSections;
   screenshots?: string[]; // paths relative to public/, e.g. "screenshots/klaviyo/img.png"

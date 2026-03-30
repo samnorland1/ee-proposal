@@ -12,6 +12,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   try {
     const updates = await req.json();
+
+    // Auto-set sentAt when status changes to 'sent'
+    if (updates.status === 'sent') {
+      const current = await getProposalById(id);
+      if (current && current.status !== 'sent') {
+        updates.sentAt = new Date().toISOString();
+      }
+    }
+    // Clear sentAt if status changes away from 'sent'
+    if (updates.status && updates.status !== 'sent') {
+      updates.sentAt = null;
+    }
+
     const proposal = await updateProposal(id, updates);
     return NextResponse.json({ proposal });
   } catch (error) {

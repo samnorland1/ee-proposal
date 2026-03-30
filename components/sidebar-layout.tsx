@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { NotificationBell } from './notification-bell';
 
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -103,13 +104,23 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-[#02210C] text-white shrink-0">
-          <button onClick={() => setOpen(true)} className="text-white/80 hover:text-white">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <Image src="/logo.png" alt="Email Evolution" width={110} height={36} style={{ objectFit: 'contain' }} priority />
+        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#02210C] text-white shrink-0">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setOpen(true)} className="text-white/80 hover:text-white">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <Image src="/logo.png" alt="Email Evolution" width={110} height={36} style={{ objectFit: 'contain' }} priority />
+          </div>
+          <div className="[&_button]:text-white/80 [&_button:hover]:text-white [&_button:hover]:bg-white/10">
+            <NotificationBell />
+          </div>
+        </div>
+
+        {/* Desktop top bar */}
+        <div className="hidden md:flex items-center justify-end px-6 py-3 border-b border-gray-100 bg-white">
+          <NotificationBell />
         </div>
 
         <main className="flex-1 overflow-auto">

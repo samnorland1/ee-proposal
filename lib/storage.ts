@@ -15,6 +15,7 @@ function toRow(p: Proposal) {
     pricing: p.pricing,
     project_title: p.projectTitle ?? null,
     extra_context: p.extraContext ?? '',
+    sent_at: p.sentAt ?? null,
     extracted_data: p.extractedData,
     sections: p.sections,
     screenshots: p.screenshots ?? [],
@@ -37,6 +38,7 @@ function fromRow(row: any): Proposal {
     pricing: row.pricing,
     projectTitle: row.project_title ?? undefined,
     extraContext: row.extra_context ?? undefined,
+    sentAt: row.sent_at ?? undefined,
     extractedData: row.extracted_data,
     sections: row.sections,
     screenshots: row.screenshots ?? [],
@@ -83,6 +85,7 @@ export async function updateProposal(id: string, updates: Partial<Proposal>): Pr
   if (updates.pricing !== undefined) dbUpdates.pricing = updates.pricing;
   if (updates.projectTitle !== undefined) dbUpdates.project_title = updates.projectTitle;
   if (updates.extraContext !== undefined) dbUpdates.extra_context = updates.extraContext;
+  if (updates.sentAt !== undefined) dbUpdates.sent_at = updates.sentAt;
   if (updates.extractedData !== undefined) dbUpdates.extracted_data = updates.extractedData;
   if (updates.sections !== undefined) dbUpdates.sections = updates.sections;
   if (updates.screenshots !== undefined) dbUpdates.screenshots = updates.screenshots;
