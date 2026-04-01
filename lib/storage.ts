@@ -20,6 +20,7 @@ function toRow(p: Proposal) {
     sections: p.sections,
     screenshots: p.screenshots ?? [],
     screenshot_captions: p.screenshotCaptions ?? {},
+    client_id: p.clientId ?? null,
   };
 }
 
@@ -43,6 +44,7 @@ function fromRow(row: any): Proposal {
     sections: row.sections,
     screenshots: row.screenshots ?? [],
     screenshotCaptions: row.screenshot_captions ?? {},
+    clientId: row.client_id ?? undefined,
   };
 }
 
@@ -90,6 +92,7 @@ export async function updateProposal(id: string, updates: Partial<Proposal>): Pr
   if (updates.sections !== undefined) dbUpdates.sections = updates.sections;
   if (updates.screenshots !== undefined) dbUpdates.screenshots = updates.screenshots;
   if (updates.screenshotCaptions !== undefined) dbUpdates.screenshot_captions = updates.screenshotCaptions;
+  if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
 
   const { data, error } = await supabase
     .from('proposals')

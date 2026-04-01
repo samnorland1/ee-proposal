@@ -1,3 +1,30 @@
+// Client types
+export type ClientType = 'B2B' | 'B2C';
+
+export interface ClientDocument {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  storagePath: string;
+  uploadedAt: string;
+}
+
+export interface Client {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  country: string;
+  businessName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  clientType: ClientType;
+  source: string;
+  isCurrent: boolean;
+  documents: ClientDocument[];
+}
+
 export interface NotionTranscript {
   pageId: string;
   clientName: string;
@@ -97,4 +124,5 @@ export interface Proposal {
   sections: ProposalSections;
   screenshots?: string[]; // paths relative to public/, e.g. "screenshots/klaviyo/img.png"
   screenshotCaptions?: Record<string, string>; // path → custom caption override
+  clientId?: string; // Link to CRM client record
 }
