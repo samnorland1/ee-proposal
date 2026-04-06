@@ -1,6 +1,6 @@
 'use client';
 
-import { Proposal, ProposalSections } from '@/types';
+import { Proposal, ProposalSections, AIThinking } from '@/types';
 
 function screenshotSrc(relativePath: string): string {
   return '/' + relativePath.split('/').map(encodeURIComponent).join('/');
@@ -101,6 +101,61 @@ function Section({ label, children, accent }: { label: string; children: React.R
     <div className={`px-20 py-24 border-b border-white/[0.07] ${accent ? 'bg-orange-600' : 'bg-[#0D0D0D]'}`}>
       <SectionLabel label={label} onAccent={accent} />
       {children}
+    </div>
+  );
+}
+
+function AIThinkingDisplay({ aiThinking }: { aiThinking: AIThinking }) {
+  return (
+    <div className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] px-20 py-24 border-b border-white/[0.07]">
+      <SectionLabel label="The Numbers" />
+
+      {/* Problems with Metrics */}
+      <div className="mb-16">
+        <p className="text-white font-bold text-xl mb-8 flex items-center gap-3">
+          <span className="w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center text-red-400 text-sm">!</span>
+          Current Cost
+        </p>
+        <div className="space-y-4">
+          {aiThinking.quantifiedProblems.map((item, i) => (
+            <div key={i} className="flex items-start gap-4 bg-white/5 rounded-xl p-5">
+              <div className="shrink-0">
+                <span className="text-2xl font-bold text-red-400">{item.metric}</span>
+                {item.source === 'transcript' && (
+                  <span className="block text-xs text-green-400/70 mt-1">from call</span>
+                )}
+              </div>
+              <p className="text-gray-300 text-lg pt-1">{item.problem}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Solutions with Projected Impact */}
+      <div className="mb-16">
+        <p className="text-white font-bold text-xl mb-8 flex items-center gap-3">
+          <span className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-400 text-sm">+</span>
+          Projected Impact
+        </p>
+        <div className="space-y-4">
+          {aiThinking.quantifiedSolutions.map((item, i) => (
+            <div key={i} className="flex items-start gap-4 bg-white/5 rounded-xl p-5">
+              <div className="shrink-0 text-right" style={{ minWidth: 140 }}>
+                <span className="text-2xl font-bold text-green-400">{item.improvement}</span>
+                <span className="block text-sm text-gray-400 mt-1">{item.projectedValue}</span>
+              </div>
+              <p className="text-gray-300 text-lg pt-1">{item.solution}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ROI Summary */}
+      <div className="bg-orange-600/20 border border-orange-500/30 rounded-2xl p-8 text-center">
+        <p className="text-orange-300 text-sm font-bold tracking-widest uppercase mb-3">Expected Return</p>
+        <p className="text-white text-4xl font-black mb-4">{aiThinking.roiRange}</p>
+        <p className="text-gray-300 text-lg max-w-xl mx-auto">{aiThinking.roiSummary}</p>
+      </div>
     </div>
   );
 }
@@ -216,6 +271,7 @@ export function ProposalPreview({ proposal }: ProposalPreviewProps) {
         <div className="bg-[#0D0D0D]">
 
           {show('intro') && <Section label="Intro">{renderContent(sections.intro)}</Section>}
+          {proposal.aiThinking && <AIThinkingDisplay aiThinking={proposal.aiThinking} />}
           {show('currentIssues') && <Section label="Current Issues & Problem">{renderContent(sections.currentIssues)}</Section>}
           {show('solution') && <Section label="Solution">{renderContent(sections.solution)}</Section>}
           {show('whatsIncluded') && <Section label="What's Included">{renderContent(sections.whatsIncluded)}</Section>}

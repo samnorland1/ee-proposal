@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getTranscriptById, updateTranscriptStatus } from '@/lib/notion';
 import { extractFromTranscript } from '@/lib/ai/extraction';
 import { generateProposal, generateProjectTitle } from '@/lib/ai/proposal-writer';
+import { generateAIThinking } from '@/lib/ai/thinking';
 import { createProposal } from '@/lib/storage';
 import { findRelevantScreenshots, generateCaptions } from '@/lib/screenshots';
 import { Proposal } from '@/types';
@@ -25,10 +26,11 @@ export async function POST(req: NextRequest) {
     // Step 2: Extract structured data (include extra context if provided)
     const extractedData = await extractFromTranscript(transcript.transcript, extraContext);
 
-    // Step 3: Generate proposal sections + project title in parallel
-    const [sections, projectTitle] = await Promise.all([
+    // Step 3: Generate proposal sections, project title, and AI thinking in parallel
+    const [sections, projectTitle, aiThinking] = await Promise.all([
       generateProposal(extractedData, pricing, extraContext),
       generateProjectTitle(extractedData),
+      generateAIThinking(extractedData, transcript.transcript),
     ]);
 
     // Step 4: Find relevant screenshots from public/screenshots/
@@ -56,6 +58,7 @@ export async function POST(req: NextRequest) {
       extraContext: extraContext || undefined,
       extractedData,
       sections,
+      aiThinking,
       screenshots,
       screenshotCaptions,
     };

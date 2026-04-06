@@ -106,6 +106,25 @@ export type StringSectionKey =
 
 export type ProposalStatus = 'draft' | 'ready' | 'sent' | 'won' | 'lost';
 
+export interface QuantifiedProblem {
+  problem: string;
+  metric: string; // e.g., "20 hours/week", "$5,000/month"
+  source: 'transcript' | 'estimated';
+}
+
+export interface QuantifiedSolution {
+  solution: string;
+  improvement: string; // e.g., "80% reduction", "2x increase"
+  projectedValue: string; // e.g., "Save 16 hours/week", "$4,000/month recovered"
+}
+
+export interface AIThinking {
+  quantifiedProblems: QuantifiedProblem[];
+  quantifiedSolutions: QuantifiedSolution[];
+  roiSummary: string; // e.g., "Based on 2x email performance, expect 2-4x ROI"
+  roiRange: string; // e.g., "2-4x"
+}
+
 export interface Proposal {
   id: string;
   createdAt: string;
@@ -122,6 +141,7 @@ export interface Proposal {
   sentAt?: string; // ISO timestamp when status changed to 'sent'
   extractedData: ExtractedData;
   sections: ProposalSections;
+  aiThinking?: AIThinking;
   screenshots?: string[]; // paths relative to public/, e.g. "screenshots/klaviyo/img.png"
   screenshotCaptions?: Record<string, string>; // path → custom caption override
   clientId?: string; // Link to CRM client record
