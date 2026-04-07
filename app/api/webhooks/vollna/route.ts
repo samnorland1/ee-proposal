@@ -102,12 +102,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const payload: VollnaWebhookPayload = await request.json();
+    const payload = await request.json();
+
+    // Log payload for debugging
+    console.log('Vollna webhook received:', JSON.stringify(payload, null, 2));
+
+    // Handle test/ping requests
+    if (payload.event === 'test' || payload.type === 'test' || payload.ping) {
+      return NextResponse.json({ success: true, message: 'Test received' });
+    }
 
     // Handle both nested (data.X) and flat payload structures
     const rawData = payload.data ?? payload;
     if (!rawData.id || !rawData.title || !rawData.description) {
-      return NextResponse.json({ error: 'Missing required fields: id, title, description' }, { status: 400 });
+      console.log('Missing required fields. Payload structure:', Object.keys(payload));
+      return NextResponse.json({ error: 'Missing required fields: id, title, description', received: Object.keys(payload) }, { status: 400 });
     }
 
     // After validation, we know these fields exist
