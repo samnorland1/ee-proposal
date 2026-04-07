@@ -3,59 +3,66 @@ import { upsertLead } from '@/lib/leads';
 import { generateLeadProposal } from '@/lib/ai/lead-proposal-writer';
 import { UpworkLead } from '@/types';
 
-interface ClientWorkHistoryItem {
-  score?: number;
-  comment?: string;
+// Vollna's actual Project schema from their OpenAPI spec
+interface VollnaProject {
+  title: string;
+  description: string;
+  skills?: string; // comma-separated string
+  url?: string;
+  publishedAt?: string;
+  clientQuestions?: string[];
+  categories?: string[];
+  site?: string;
+  budget?: {
+    type?: string; // "Fixed price" or "Hourly rate"
+    amount?: string; // string with currency symbol like "$500"
+  };
+  clientDetails?: {
+    paymentMethodVerified?: boolean;
+    country?: string;
+    totalSpent?: number;
+    totalHires?: number;
+    hireRate?: number;
+    rating?: number;
+    reviews?: number;
+  };
+  clientWorkHistory?: Array<{
+    feedback?: {
+      score?: number;
+      comment?: string;
+    };
+    feedback_to_client?: {
+      score?: number;
+      comment?: string;
+    };
+  }>;
 }
 
-interface VollnaWebhookPayload {
-  event?: string;
-  data?: {
-    id: string;
-    title: string;
-    description: string;
-    budget?: {
-      amount?: number;
-      type?: 'fixed' | 'hourly';
-      min?: number;
-      max?: number;
-    };
-    category?: string;
-    skills?: string[];
-    client?: {
-      country?: string;
-      totalSpend?: number;
-      hireRate?: number;
-      reviewScore?: number;
-      workHistory?: ClientWorkHistoryItem[];
-    };
-    clientWorkHistory?: ClientWorkHistoryItem[];
-    postedAt?: string;
-    url?: string;
-    questions?: string[];
-  };
-  // Alternative flat structure
-  id?: string;
-  title?: string;
-  description?: string;
+// Extract job ID from Upwork URL
+function extractJobId(url?: string): string {
+  if (!url) return `vollna-${Date.now()}`;
+
+  // Try to extract from URL like https://www.upwork.com/jobs/~01abc123
+  const match = url.match(/jobs\/~?([a-zA-Z0-9]+)/);
+  if (match) return match[1];
+
+  // Fallback to hash of URL
+  return `vollna-${url.split('/').pop() || Date.now()}`;
 }
 
 // Extract first name from review comments
-// Looks for patterns like "John was great", "Working with Sarah", "Thanks Mike"
-function extractFirstNameFromReviews(workHistory?: ClientWorkHistoryItem[]): string | null {
+function extractFirstNameFromReviews(workHistory?: VollnaProject['clientWorkHistory']): string | null {
   if (!workHistory || workHistory.length === 0) return null;
 
-  // Common patterns where names appear in reviews
   const namePatterns = [
-    /^([A-Z][a-z]{2,12})\s+(?:was|is|has been)/i,  // "John was great"
-    /working with\s+([A-Z][a-z]{2,12})/i,           // "Working with Sarah"
-    /thanks?\s*,?\s+([A-Z][a-z]{2,12})/i,           // "Thanks Mike" or "Thank you, Mike"
+    /^([A-Z][a-z]{2,12})\s+(?:was|is|has been)/i,
+    /working with\s+([A-Z][a-z]{2,12})/i,
+    /thanks?\s*,?\s+([A-Z][a-z]{2,12})/i,
     /([A-Z][a-z]{2,12})\s+(?:is a|was a|is an|was an)\s+(?:great|excellent|amazing|wonderful|fantastic)/i,
-    /recommend\s+([A-Z][a-z]{2,12})/i,              // "I recommend John"
-    /hired\s+([A-Z][a-z]{2,12})/i,                  // "I hired Sarah"
+    /recommend\s+([A-Z][a-z]{2,12})/i,
+    /hired\s+([A-Z][a-z]{2,12})/i,
   ];
 
-  // Common names to validate against (helps filter false positives)
   const commonNames = new Set([
     'james', 'john', 'robert', 'michael', 'david', 'william', 'richard', 'joseph', 'thomas', 'charles',
     'mary', 'patricia', 'jennifer', 'linda', 'elizabeth', 'barbara', 'susan', 'jessica', 'sarah', 'karen',
@@ -70,10 +77,11 @@ function extractFirstNameFromReviews(workHistory?: ClientWorkHistoryItem[]): str
   const nameCounts: Record<string, number> = {};
 
   for (const item of workHistory) {
-    if (!item.comment) continue;
+    const comment = item.feedback_to_client?.comment || item.feedback?.comment;
+    if (!comment) continue;
 
     for (const pattern of namePatterns) {
-      const match = item.comment.match(pattern);
+      const match = comment.match(pattern);
       if (match && match[1]) {
         const name = match[1].toLowerCase();
         if (commonNames.has(name)) {
@@ -83,7 +91,6 @@ function extractFirstNameFromReviews(workHistory?: ClientWorkHistoryItem[]): str
     }
   }
 
-  // Return the most frequently mentioned name
   const entries = Object.entries(nameCounts);
   if (entries.length === 0) return null;
 
@@ -102,33 +109,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const payload = await request.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = await request.json();
 
     // Log payload for debugging
     console.log('Vollna webhook received:', JSON.stringify(payload, null, 2));
 
     // Handle test/ping requests
-    if (payload.event === 'test' || payload.type === 'test' || payload.ping) {
-      return NextResponse.json({ success: true, message: 'Test received' });
+    if (payload.event === 'test' || payload.type === 'test' || payload.ping || Object.keys(payload).length === 0) {
+      return NextResponse.json({ success: true, message: 'Webhook active' });
     }
 
     // Handle both nested (data.X) and flat payload structures
-    const rawData = payload.data ?? payload;
-    if (!rawData.id || !rawData.title || !rawData.description) {
-      console.log('Missing required fields. Payload structure:', Object.keys(payload));
-      return NextResponse.json({ error: 'Missing required fields: id, title, description', received: Object.keys(payload) }, { status: 400 });
+    const project: VollnaProject = payload.data ?? payload;
+
+    // Validate required fields - Vollna sends title and description, NOT id
+    if (!project.title || !project.description) {
+      console.log('Missing required fields. Received keys:', Object.keys(project));
+      return NextResponse.json({
+        error: 'Missing required fields: title, description',
+        received: Object.keys(project)
+      }, { status: 400 });
     }
 
-    // After validation, we know these fields exist
-    const data = rawData as NonNullable<VollnaWebhookPayload['data']>;
-
     // Transform payload to lead format
-    const jobData = transformPayload(data);
+    const jobData = transformPayload(project);
 
     // Generate proposal using Claude
     const { proposal, screeningAnswers, score } = await generateLeadProposal(
       jobData,
-      data.questions || []
+      project.clientQuestions || []
     );
 
     // Build lead object
@@ -147,43 +157,50 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Webhook error:', error);
     return NextResponse.json(
-      { error: 'Failed to process webhook' },
+      { error: 'Failed to process webhook', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
-function transformPayload(data: NonNullable<VollnaWebhookPayload['data']>): Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt' | 'proposal' | 'screeningAnswers' | 'score' | 'status'> {
+function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt' | 'proposal' | 'screeningAnswers' | 'score' | 'status'> {
+  // Parse budget - Vollna sends it as string like "$500" or object with amount string
   let budget: string | null = null;
-  if (data.budget) {
-    if (data.budget.amount) {
-      budget = `$${data.budget.amount}`;
-    } else if (data.budget.min && data.budget.max) {
-      budget = `$${data.budget.min} - $${data.budget.max}`;
-    } else if (data.budget.min) {
-      budget = `$${data.budget.min}+`;
+  let budgetType: 'fixed' | 'hourly' | null = null;
+
+  if (project.budget) {
+    budget = project.budget.amount || null;
+    if (project.budget.type) {
+      budgetType = project.budget.type.toLowerCase().includes('hour') ? 'hourly' : 'fixed';
     }
   }
 
-  // Try to extract client first name from work history reviews
-  const workHistory = data.clientWorkHistory || data.client?.workHistory;
-  const clientFirstName = extractFirstNameFromReviews(workHistory);
+  // Parse skills - Vollna sends comma-separated string
+  const skills = project.skills
+    ? project.skills.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+
+  // Extract client first name from work history reviews
+  const clientFirstName = extractFirstNameFromReviews(project.clientWorkHistory);
+
+  // Extract job ID from URL
+  const jobId = extractJobId(project.url);
 
   return {
-    jobId: data.id,
-    title: data.title,
-    description: data.description,
+    jobId,
+    title: project.title,
+    description: project.description,
     budget,
-    budgetType: data.budget?.type || null,
-    category: data.category || null,
-    skills: data.skills || [],
-    clientCountry: data.client?.country || null,
-    clientSpend: data.client?.totalSpend ? `$${data.client.totalSpend}` : null,
-    clientHireRate: data.client?.hireRate ? `${data.client.hireRate}%` : null,
-    clientReviewScore: data.client?.reviewScore?.toString() || null,
+    budgetType,
+    category: project.categories?.[0] || null,
+    skills,
+    clientCountry: project.clientDetails?.country || null,
+    clientSpend: project.clientDetails?.totalSpent ? `$${project.clientDetails.totalSpent}` : null,
+    clientHireRate: project.clientDetails?.hireRate ? `${Math.round(project.clientDetails.hireRate * 100)}%` : null,
+    clientReviewScore: project.clientDetails?.rating?.toString() || null,
     clientFirstName,
-    postedAt: data.postedAt || new Date().toISOString(),
-    jobUrl: data.url || `https://www.upwork.com/jobs/${data.id}`,
+    postedAt: project.publishedAt || new Date().toISOString(),
+    jobUrl: project.url || '',
   };
 }
 
