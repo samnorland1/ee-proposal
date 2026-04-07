@@ -146,3 +146,29 @@ export interface Proposal {
   screenshotCaptions?: Record<string, string>; // path → custom caption override
   clientId?: string; // Link to CRM client record
 }
+
+// Upwork Lead types
+export type LeadStatus = 'new' | 'applied' | 'skipped' | 'won' | 'lost';
+
+export interface UpworkLead {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  jobId: string;
+  title: string;
+  description: string;
+  budget: string | null;
+  budgetType: 'fixed' | 'hourly' | null;
+  category: string | null;
+  skills: string[];
+  clientCountry: string | null;
+  clientSpend: string | null;
+  clientHireRate: string | null;
+  clientReviewScore: string | null;
+  postedAt: string;
+  jobUrl: string;
+  proposal: string | null;
+  screeningAnswers: Record<string, string> | null;
+  score: number | null;
+  status: LeadStatus;
+}
