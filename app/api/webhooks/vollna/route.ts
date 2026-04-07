@@ -3,6 +3,11 @@ import { upsertLead } from '@/lib/leads';
 import { generateLeadProposal } from '@/lib/ai/lead-proposal-writer';
 import { UpworkLead } from '@/types';
 
+interface ClientWorkHistoryItem {
+  score?: number;
+  comment?: string;
+}
+
 interface VollnaWebhookPayload {
   event?: string;
   data?: {
@@ -22,7 +27,9 @@ interface VollnaWebhookPayload {
       totalSpend?: number;
       hireRate?: number;
       reviewScore?: number;
+      workHistory?: ClientWorkHistoryItem[];
     };
+    clientWorkHistory?: ClientWorkHistoryItem[];
     postedAt?: string;
     url?: string;
     questions?: string[];
@@ -31,6 +38,57 @@ interface VollnaWebhookPayload {
   id?: string;
   title?: string;
   description?: string;
+}
+
+// Extract first name from review comments
+// Looks for patterns like "John was great", "Working with Sarah", "Thanks Mike"
+function extractFirstNameFromReviews(workHistory?: ClientWorkHistoryItem[]): string | null {
+  if (!workHistory || workHistory.length === 0) return null;
+
+  // Common patterns where names appear in reviews
+  const namePatterns = [
+    /^([A-Z][a-z]{2,12})\s+(?:was|is|has been)/i,  // "John was great"
+    /working with\s+([A-Z][a-z]{2,12})/i,           // "Working with Sarah"
+    /thanks?\s*,?\s+([A-Z][a-z]{2,12})/i,           // "Thanks Mike" or "Thank you, Mike"
+    /([A-Z][a-z]{2,12})\s+(?:is a|was a|is an|was an)\s+(?:great|excellent|amazing|wonderful|fantastic)/i,
+    /recommend\s+([A-Z][a-z]{2,12})/i,              // "I recommend John"
+    /hired\s+([A-Z][a-z]{2,12})/i,                  // "I hired Sarah"
+  ];
+
+  // Common names to validate against (helps filter false positives)
+  const commonNames = new Set([
+    'james', 'john', 'robert', 'michael', 'david', 'william', 'richard', 'joseph', 'thomas', 'charles',
+    'mary', 'patricia', 'jennifer', 'linda', 'elizabeth', 'barbara', 'susan', 'jessica', 'sarah', 'karen',
+    'daniel', 'matthew', 'anthony', 'mark', 'donald', 'steven', 'paul', 'andrew', 'joshua', 'kenneth',
+    'nancy', 'betty', 'margaret', 'sandra', 'ashley', 'dorothy', 'kimberly', 'emily', 'donna', 'michelle',
+    'alex', 'sam', 'chris', 'pat', 'jordan', 'taylor', 'morgan', 'casey', 'jamie', 'jesse',
+    'mike', 'dave', 'dan', 'tom', 'bob', 'joe', 'bill', 'jim', 'steve', 'matt',
+    'kate', 'jen', 'liz', 'sue', 'kim', 'amy', 'lisa', 'anna', 'emma', 'olivia',
+    'raj', 'priya', 'amit', 'sanjay', 'deepak', 'wei', 'chen', 'ahmed', 'omar', 'ali',
+  ]);
+
+  const nameCounts: Record<string, number> = {};
+
+  for (const item of workHistory) {
+    if (!item.comment) continue;
+
+    for (const pattern of namePatterns) {
+      const match = item.comment.match(pattern);
+      if (match && match[1]) {
+        const name = match[1].toLowerCase();
+        if (commonNames.has(name)) {
+          nameCounts[match[1]] = (nameCounts[match[1]] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  // Return the most frequently mentioned name
+  const entries = Object.entries(nameCounts);
+  if (entries.length === 0) return null;
+
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries[0][0];
 }
 
 export async function POST(request: NextRequest) {
@@ -98,6 +156,10 @@ function transformPayload(data: NonNullable<VollnaWebhookPayload['data']>): Omit
     }
   }
 
+  // Try to extract client first name from work history reviews
+  const workHistory = data.clientWorkHistory || data.client?.workHistory;
+  const clientFirstName = extractFirstNameFromReviews(workHistory);
+
   return {
     jobId: data.id,
     title: data.title,
@@ -110,6 +172,7 @@ function transformPayload(data: NonNullable<VollnaWebhookPayload['data']>): Omit
     clientSpend: data.client?.totalSpend ? `$${data.client.totalSpend}` : null,
     clientHireRate: data.client?.hireRate ? `${data.client.hireRate}%` : null,
     clientReviewScore: data.client?.reviewScore?.toString() || null,
+    clientFirstName,
     postedAt: data.postedAt || new Date().toISOString(),
     jobUrl: data.url || `https://www.upwork.com/jobs/${data.id}`,
   };

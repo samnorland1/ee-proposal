@@ -165,6 +165,7 @@ export interface UpworkLead {
   clientSpend: string | null;
   clientHireRate: string | null;
   clientReviewScore: string | null;
+  clientFirstName: string | null;
   postedAt: string;
   jobUrl: string;
   proposal: string | null;

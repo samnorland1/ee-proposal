@@ -12,6 +12,7 @@ interface LeadJobData {
   clientSpend: string | null;
   clientHireRate: string | null;
   clientReviewScore: string | null;
+  clientFirstName: string | null;
 }
 
 interface ProposalResult {
@@ -48,6 +49,7 @@ function buildUserPrompt(job: LeadJobData, screeningQuestions: string[]): string
 ${job.description}
 
 ## Client Info
+- First Name: ${job.clientFirstName || 'Unknown (use just "Hi" for greeting)'}
 - Country: ${job.clientCountry || 'Unknown'}
 - Total Spend: ${job.clientSpend || 'Unknown'}
 - Hire Rate: ${job.clientHireRate || 'Unknown'}

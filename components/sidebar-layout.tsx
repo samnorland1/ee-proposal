@@ -12,6 +12,20 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   const navSections = [
     {
+      title: null,
+      links: [
+        {
+          href: '/',
+          label: 'Home',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+          ),
+        },
+      ],
+    },
+    {
       title: 'Leads',
       links: [
         {
@@ -79,14 +93,16 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         </button>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-6">
-        {navSections.map((section) => (
-          <div key={section.title}>
-            <div className="px-3 mb-2 text-xs font-semibold text-white/40 uppercase tracking-wider">
-              {section.title}
-            </div>
+        {navSections.map((section, idx) => (
+          <div key={section.title || idx}>
+            {section.title && (
+              <div className="px-3 mb-2 text-xs font-semibold text-white/40 uppercase tracking-wider">
+                {section.title}
+              </div>
+            )}
             <div className="space-y-1">
               {section.links.map((link) => {
-                const active = pathname === link.href || pathname.startsWith(link.href + '/');
+                const active = link.href === '/' ? pathname === '/' : (pathname === link.href || pathname.startsWith(link.href + '/'));
                 return (
                   <Link
                     key={link.href}
