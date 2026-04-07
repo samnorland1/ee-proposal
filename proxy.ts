@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth")) {
+  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth") || pathname.startsWith("/api/webhooks")) {
     return NextResponse.next();
   }
 
