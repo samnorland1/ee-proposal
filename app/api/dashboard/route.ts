@@ -25,8 +25,8 @@ export async function GET() {
       total: proposals.length,
       draft: proposals.filter(p => p.status === 'draft').length,
       sent: proposals.filter(p => p.status === 'sent').length,
-      accepted: proposals.filter(p => p.status === 'accepted').length,
-      declined: proposals.filter(p => p.status === 'declined').length,
+      won: proposals.filter(p => p.status === 'won').length,
+      lost: proposals.filter(p => p.status === 'lost').length,
     };
 
     // Client stats

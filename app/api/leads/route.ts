@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       clientSpend: body.clientSpend || null,
       clientHireRate: body.clientHireRate || null,
       clientReviewScore: body.clientReviewScore || null,
+      clientFirstName: body.clientFirstName || null,
       postedAt: body.postedAt || new Date().toISOString(),
       jobUrl: body.jobUrl || body.url || '',
     };

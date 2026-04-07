@@ -15,8 +15,8 @@ interface DashboardData {
     total: number;
     draft: number;
     sent: number;
-    accepted: number;
-    declined: number;
+    won: number;
+    lost: number;
   };
   clients: {
     total: number;
@@ -119,7 +119,7 @@ export default function Home() {
               </div>
               <div className="flex gap-4 text-sm">
                 <span className="text-gray-600">{data.proposals.sent} sent</span>
-                <span className="text-emerald-600">{data.proposals.accepted} accepted</span>
+                <span className="text-emerald-600">{data.proposals.won} won</span>
               </div>
             </div>
           </div>
@@ -226,7 +226,7 @@ export default function Home() {
                     <span className={`text-xs px-2 py-0.5 rounded ${
                       proposal.status === 'draft' ? 'bg-gray-100 text-gray-600' :
                       proposal.status === 'sent' ? 'bg-blue-100 text-blue-700' :
-                      proposal.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+                      proposal.status === 'won' ? 'bg-emerald-100 text-emerald-700' :
                       'bg-red-100 text-red-700'
                     }`}>
                       {proposal.status}
