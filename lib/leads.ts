@@ -111,15 +111,47 @@ export async function upsertLead(
   lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'>,
   vollnaPayload?: unknown
 ): Promise<UpworkLead> {
+  // Check if lead already exists - if so, only update job details, NOT user data (proposal, score, status, etc.)
+  const existing = await getLeadByJobId(lead.jobId);
+
+  if (existing) {
+    // Only update job metadata, preserve user-generated data
+    const { data, error } = await supabase
+      .from('upwork_leads')
+      .update({
+        title: lead.title,
+        description: lead.description,
+        budget: lead.budget,
+        budget_type: lead.budgetType,
+        category: lead.category,
+        skills: lead.skills,
+        client_country: lead.clientCountry,
+        client_spend: lead.clientSpend,
+        client_hire_rate: lead.clientHireRate,
+        client_review_score: lead.clientReviewScore,
+        client_first_name: lead.clientFirstName,
+        posted_at: lead.postedAt,
+        job_url: lead.jobUrl,
+        vollna_payload: vollnaPayload ?? null,
+        updated_at: new Date().toISOString(),
+        // DO NOT update: proposal, screening_answers, hooks, score, status
+      })
+      .eq('job_id', lead.jobId)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return fromRow(data);
+  }
+
+  // New lead - create with null proposal
   const row = {
     ...toRow(lead),
     vollna_payload: vollnaPayload ?? null,
-    updated_at: new Date().toISOString(),
   };
 
   const { data, error } = await supabase
     .from('upwork_leads')
-    .upsert(row, { onConflict: 'job_id' })
+    .insert(row)
     .select()
     .single();
   if (error) throw new Error(error.message);
