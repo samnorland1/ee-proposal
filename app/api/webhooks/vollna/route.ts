@@ -123,13 +123,11 @@ export async function POST(request: NextRequest) {
     // Handle both nested (data.X) and flat payload structures
     const project: VollnaProject = payload.data ?? payload;
 
-    // Validate required fields - Vollna sends title and description, NOT id
+    // Validate required fields - but allow test requests through
     if (!project.title || !project.description) {
-      console.log('Missing required fields. Received keys:', Object.keys(project));
-      return NextResponse.json({
-        error: 'Missing required fields: title, description',
-        received: Object.keys(project)
-      }, { status: 400 });
+      console.log('Missing fields. Received:', JSON.stringify(payload));
+      // Return success for test/ping - Vollna test might send empty or minimal payload
+      return NextResponse.json({ success: true, message: 'Webhook received', keys: Object.keys(payload) });
     }
 
     // Transform payload to lead format
