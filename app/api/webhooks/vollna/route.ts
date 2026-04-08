@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { upsertLead } from '@/lib/leads';
 import { generateLeadProposal } from '@/lib/ai/lead-proposal-writer';
 import { UpworkLead } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 // Vollna's actual Project schema from their OpenAPI spec
 interface VollnaProject {
@@ -112,6 +113,17 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payload: any = await request.json();
 
+    // Log ALL payloads to webhook_logs table for debugging
+    try {
+      await supabase.from('webhook_logs').insert({
+        payload: payload,
+        received_at: new Date().toISOString()
+      });
+    } catch {
+      // Table might not exist yet, that's fine
+      console.log('Could not log to webhook_logs table');
+    }
+
     // Log payload for debugging
     console.log('Vollna webhook received:', JSON.stringify(payload, null, 2));
 
@@ -121,13 +133,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle both nested (data.X) and flat payload structures
-    const project: VollnaProject = payload.data ?? payload;
+    // Vollna might wrap in "project" or send flat
+    const project: VollnaProject = payload.project ?? payload.data ?? payload;
 
     // Validate required fields - but allow test requests through
     if (!project.title || !project.description) {
-      console.log('Missing fields. Received:', JSON.stringify(payload));
-      // Return success for test/ping - Vollna test might send empty or minimal payload
-      return NextResponse.json({ success: true, message: 'Webhook received', keys: Object.keys(payload) });
+      console.log('Missing fields. Keys at root:', Object.keys(payload));
+      console.log('Keys in project:', Object.keys(project));
+      // Return success but indicate what we received
+      return NextResponse.json({
+        success: true,
+        message: 'Payload received but missing title/description',
+        rootKeys: Object.keys(payload),
+        projectKeys: Object.keys(project)
+      });
     }
 
     // Transform payload to lead format
