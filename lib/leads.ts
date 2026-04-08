@@ -20,7 +20,7 @@ function toRow(lead: Partial<UpworkLead> & { jobId: string }) {
     job_url: lead.jobUrl ?? null,
     proposal: lead.proposal ?? null,
     screening_answers: lead.screeningAnswers ?? null,
-    hooks: lead.hooks ?? null,
+    // hooks column - add via Supabase dashboard: ALTER TABLE upwork_leads ADD COLUMN hooks jsonb DEFAULT NULL;
     score: lead.score ?? null,
     status: lead.status ?? 'new',
   };
@@ -164,7 +164,8 @@ export async function updateLead(id: string, updates: Partial<UpworkLead>): Prom
   if (updates.status !== undefined) dbUpdates.status = updates.status;
   if (updates.proposal !== undefined) dbUpdates.proposal = updates.proposal;
   if (updates.screeningAnswers !== undefined) dbUpdates.screening_answers = updates.screeningAnswers;
-  if (updates.hooks !== undefined) dbUpdates.hooks = updates.hooks;
+  // hooks column doesn't exist yet - add via Supabase dashboard if needed
+  // if (updates.hooks !== undefined) dbUpdates.hooks = updates.hooks;
   if (updates.score !== undefined) dbUpdates.score = updates.score;
 
   const { data, error } = await supabase
