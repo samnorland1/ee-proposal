@@ -4,38 +4,31 @@ import { generateLeadProposal } from '@/lib/ai/lead-proposal-writer';
 import { UpworkLead } from '@/types';
 import { supabase } from '@/lib/supabase';
 
-// Vollna's actual Project schema from their OpenAPI spec
+// Vollna's actual webhook payload structure (snake_case)
 interface VollnaProject {
   title: string;
   description: string;
-  skills?: string; // comma-separated string
   url?: string;
-  publishedAt?: string;
-  clientQuestions?: string[];
+  skills?: string; // comma-separated string
+  budget?: string; // "750 USD" or "25 - 60 USD"
+  budget_type?: string; // "fixed" or "hourly"
+  published?: string; // ISO date
+  questions?: string[] | null;
   categories?: string[];
   site?: string;
-  budget?: {
-    type?: string; // "Fixed price" or "Hourly rate"
-    amount?: string; // string with currency symbol like "$500"
-  };
-  clientDetails?: {
-    paymentMethodVerified?: boolean;
-    country?: string;
-    totalSpent?: number;
-    totalHires?: number;
-    hireRate?: number;
+  client_details?: {
+    rank?: string;
     rating?: number;
+    country?: { name?: string; iso_code2?: string };
     reviews?: number;
+    total_hires?: number;
+    total_spent?: number;
+    registered_at?: string;
+    payment_method_verified?: boolean;
   };
-  clientWorkHistory?: Array<{
-    feedback?: {
-      score?: number;
-      comment?: string;
-    };
-    feedback_to_client?: {
-      score?: number;
-      comment?: string;
-    };
+  client_work_history?: Array<{
+    feedback?: { score?: number; comment?: string };
+    feedback_to_client?: { score?: number; comment?: string };
   }>;
 }
 
@@ -52,7 +45,7 @@ function extractJobId(url?: string): string {
 }
 
 // Extract first name from review comments
-function extractFirstNameFromReviews(workHistory?: VollnaProject['clientWorkHistory']): string | null {
+function extractFirstNameFromReviews(workHistory?: VollnaProject['client_work_history']): string | null {
   if (!workHistory || workHistory.length === 0) return null;
 
   const namePatterns = [
@@ -132,45 +125,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Webhook active' });
     }
 
-    // Handle both nested (data.X) and flat payload structures
-    // Vollna might wrap in "project" or send flat
-    const project: VollnaProject = payload.project ?? payload.data ?? payload;
+    // Vollna sends { total, filter, projects: [...] }
+    const projects: VollnaProject[] = payload.projects || [];
 
-    // Validate required fields - but allow test requests through
-    if (!project.title || !project.description) {
-      console.log('Missing fields. Keys at root:', Object.keys(payload));
-      console.log('Keys in project:', Object.keys(project));
-      // Return success but indicate what we received
-      return NextResponse.json({
-        success: true,
-        message: 'Payload received but missing title/description',
-        rootKeys: Object.keys(payload),
-        projectKeys: Object.keys(project)
-      });
+    if (projects.length === 0) {
+      // Maybe single project format
+      const singleProject = payload.project ?? payload.data ?? payload;
+      if (singleProject.title && singleProject.description) {
+        projects.push(singleProject);
+      } else {
+        return NextResponse.json({
+          success: true,
+          message: 'No projects found in payload',
+          keys: Object.keys(payload)
+        });
+      }
     }
 
-    // Transform payload to lead format
-    const jobData = transformPayload(project);
+    const savedLeadIds: string[] = [];
 
-    // Generate proposal using Claude
-    const { proposal, screeningAnswers, score } = await generateLeadProposal(
-      jobData,
-      project.clientQuestions || []
-    );
+    for (const project of projects) {
+      if (!project.title || !project.description) {
+        console.log('Skipping project without title/description');
+        continue;
+      }
 
-    // Build lead object
-    const lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'> = {
-      ...jobData,
-      proposal,
-      screeningAnswers,
-      score,
-      status: 'new',
-    };
+      // Transform payload to lead format
+      const jobData = transformPayload(project);
 
-    // Upsert to database (updates if job_id exists)
-    const savedLead = await upsertLead(lead, payload);
+      // Generate proposal using Claude
+      const { proposal, screeningAnswers, score } = await generateLeadProposal(
+        jobData,
+        project.questions || []
+      );
 
-    return NextResponse.json({ success: true, leadId: savedLead.id });
+      // Build lead object
+      const lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'> = {
+        ...jobData,
+        proposal,
+        screeningAnswers,
+        score,
+        status: 'new',
+      };
+
+      // Upsert to database (updates if job_id exists)
+      const savedLead = await upsertLead(lead, project);
+      savedLeadIds.push(savedLead.id);
+    }
+
+    return NextResponse.json({ success: true, count: savedLeadIds.length, leadIds: savedLeadIds });
   } catch (error) {
     console.error('Webhook error:', error);
     return NextResponse.json(
@@ -181,27 +184,23 @@ export async function POST(request: NextRequest) {
 }
 
 function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt' | 'proposal' | 'screeningAnswers' | 'score' | 'status'> {
-  // Parse budget - Vollna sends it as string like "$500" or object with amount string
-  let budget: string | null = null;
-  let budgetType: 'fixed' | 'hourly' | null = null;
+  // Budget is a string like "750 USD" or "25 - 60 USD"
+  const budget = project.budget || null;
+  const budgetType: 'fixed' | 'hourly' | null = project.budget_type === 'hourly' ? 'hourly' : project.budget_type === 'fixed' ? 'fixed' : null;
 
-  if (project.budget) {
-    budget = project.budget.amount || null;
-    if (project.budget.type) {
-      budgetType = project.budget.type.toLowerCase().includes('hour') ? 'hourly' : 'fixed';
-    }
-  }
-
-  // Parse skills - Vollna sends comma-separated string
+  // Skills is comma-separated string
   const skills = project.skills
     ? project.skills.split(',').map(s => s.trim()).filter(Boolean)
     : [];
 
-  // Extract client first name from work history reviews
-  const clientFirstName = extractFirstNameFromReviews(project.clientWorkHistory);
+  // Extract client first name from work history reviews (snake_case)
+  const clientFirstName = extractFirstNameFromReviews(project.client_work_history);
 
   // Extract job ID from URL
   const jobId = extractJobId(project.url);
+
+  // Client details use snake_case
+  const client = project.client_details;
 
   return {
     jobId,
@@ -211,12 +210,12 @@ function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'crea
     budgetType,
     category: project.categories?.[0] || null,
     skills,
-    clientCountry: project.clientDetails?.country || null,
-    clientSpend: project.clientDetails?.totalSpent ? `$${project.clientDetails.totalSpent}` : null,
-    clientHireRate: project.clientDetails?.hireRate ? `${Math.round(project.clientDetails.hireRate * 100)}%` : null,
-    clientReviewScore: project.clientDetails?.rating?.toString() || null,
+    clientCountry: client?.country?.name || null,
+    clientSpend: client?.total_spent ? `$${client.total_spent}` : null,
+    clientHireRate: client?.total_hires ? `${client.total_hires} hires` : null,
+    clientReviewScore: client?.rating?.toString() || null,
     clientFirstName,
-    postedAt: project.publishedAt || new Date().toISOString(),
+    postedAt: project.published || new Date().toISOString(),
     jobUrl: project.url || '',
   };
 }
