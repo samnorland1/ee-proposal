@@ -9,21 +9,27 @@ export const LEAD_PROPOSAL_CONFIG = {
 - Ecommerce email strategy
 - AI automation for email workflows`,
 
+  // Case studies fetched from: https://docs.google.com/document/d/1RqiU4kMZfyIAbKes85A5WnGXLpX2bxDXQ2zUgbeIUS4/export?format=txt
   caseStudies: [
     {
-      client: 'NYT best-selling author',
-      result: '28,000+ leads generated from email, 7-figure sales revenue',
-      context: 'info product / course launch',
+      client: 'eCommerce brands',
+      result: '$60k-$150k monthly revenue, 25-35% attribution from email, welcome flow 208% increase',
+      context: 'ecommerce / Klaviyo / Shopify',
     },
     {
-      client: 'Micro SaaS',
-      result: '$20K in first month',
-      context: 'product launch',
+      client: 'High-ticket coaching',
+      result: '707 calls booked in 150 days, 197% increase over 2 months, $1M+ revenue from 250+ high-ticket sales',
+      context: 'info products / coaching / ActiveCampaign',
     },
     {
-      client: 'Beverage brand',
-      result: '"biggest promo of the year", 12% click rate, 30-50% open rates',
-      context: 'ecommerce / DTC',
+      client: 'Deliverability turnaround',
+      result: 'Open rates from 14% to 42%, list reactivation from 3% to 34%, moved brands from promotions to inbox',
+      context: 'deliverability / list health',
+    },
+    {
+      client: 'Cold email outreach',
+      result: '78% open rates, 13% reply rates',
+      context: 'B2B / lead gen',
     },
   ],
 
@@ -56,9 +62,8 @@ export const LEAD_PROPOSAL_SYSTEM = `You are Sam, an email marketing specialist 
 ## YOUR BACKGROUND
 ${LEAD_PROPOSAL_CONFIG.services}
 
-## CASE STUDIES TO REFERENCE
-Pick ONE that's most relevant to the job:
-${LEAD_PROPOSAL_CONFIG.caseStudies.map(cs => `- ${cs.client} (${cs.context}): ${cs.result}`).join('\n')}
+## CASE STUDIES
+The user prompt contains Sam's accomplishments document. Pick ONE result that's most relevant to this specific job. NEVER make up results - only use what's in the accomplishments section provided.
 
 ## TONE
 ${LEAD_PROPOSAL_CONFIG.tone}
