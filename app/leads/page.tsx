@@ -29,6 +29,7 @@ export default function LeadsPage() {
   const [vollnaStats, setVollnaStats] = useState<VollnaStats | null>(null);
   const [vollnaLoading, setVollnaLoading] = useState(false);
   const [vollnaError, setVollnaError] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAllLeads();
@@ -115,6 +116,24 @@ export default function LeadsPage() {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  async function generateProposal(id: string) {
+    setGeneratingId(id);
+    try {
+      const res = await fetch(`/api/leads/${id}/generate`, { method: 'POST' });
+      if (res.ok) {
+        fetchLeads();
+        fetchAllLeads();
+      } else {
+        const data = await res.json();
+        alert(`Failed to generate: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to generate proposal:', error);
+      alert('Failed to generate proposal');
+    }
+    setGeneratingId(null);
   }
 
   function formatTimeAgo(dateString: string) {
@@ -346,6 +365,10 @@ export default function LeadsPage() {
                   <tr>
                     <th className="text-left p-4 font-medium text-gray-500 text-sm">Job</th>
                     <th className="text-left p-4 font-medium text-gray-500 text-sm w-28">Budget</th>
+                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-28">Spend</th>
+                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-28">Location</th>
+                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-20">Rating</th>
+                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-24">Hires</th>
                     <th className="text-left p-4 font-medium text-gray-500 text-sm w-24">Posted</th>
                     <th className="text-left p-4 font-medium text-gray-500 text-sm w-20">Score</th>
                     <th className="text-left p-4 font-medium text-gray-500 text-sm w-24">Status</th>
@@ -368,6 +391,10 @@ export default function LeadsPage() {
                           </div>
                         </td>
                         <td className="p-4 text-gray-600">{lead.budget || '—'}</td>
+                        <td className="p-4 text-gray-600 text-sm">{lead.clientSpend || '—'}</td>
+                        <td className="p-4 text-gray-600 text-sm">{lead.clientCountry || '—'}</td>
+                        <td className="p-4 text-gray-600 text-sm">{lead.clientReviewScore || '—'}</td>
+                        <td className="p-4 text-gray-600 text-sm">{lead.clientHireRate || '—'}</td>
                         <td className="p-4 text-gray-500 text-sm">{formatTimeAgo(lead.postedAt)}</td>
                         <td className={`p-4 font-bold ${getScoreColor(lead.score)}`}>
                           {lead.score ? `${lead.score}%` : '—'}
@@ -379,17 +406,30 @@ export default function LeadsPage() {
                         </td>
                         <td className="p-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => copyToClipboard(lead.proposal || '', `proposal-${lead.id}`)}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                copiedId === `proposal-${lead.id}`
-                                  ? 'bg-green-600 text-white'
-                                  : 'bg-[#02210C] hover:bg-[#033612] text-white'
-                              }`}
-                              disabled={!lead.proposal}
-                            >
-                              {copiedId === `proposal-${lead.id}` ? 'Copied!' : 'Copy'}
-                            </button>
+                            {lead.proposal ? (
+                              <button
+                                onClick={() => copyToClipboard(lead.proposal || '', `proposal-${lead.id}`)}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                  copiedId === `proposal-${lead.id}`
+                                    ? 'bg-green-600 text-white'
+                                    : 'bg-[#02210C] hover:bg-[#033612] text-white'
+                                }`}
+                              >
+                                {copiedId === `proposal-${lead.id}` ? 'Copied!' : 'Copy'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => generateProposal(lead.id)}
+                                disabled={generatingId === lead.id}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                  generatingId === lead.id
+                                    ? 'bg-gray-300 text-gray-500 cursor-wait'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                }`}
+                              >
+                                {generatingId === lead.id ? 'Generating...' : 'Generate'}
+                              </button>
+                            )}
                             {lead.status === 'new' && (
                               <>
                                 <button
@@ -427,7 +467,7 @@ export default function LeadsPage() {
                       </tr>
                       {expandedLead === lead.id && (
                         <tr key={`${lead.id}-expanded`} className="bg-gray-50">
-                          <td colSpan={6} className="p-6">
+                          <td colSpan={10} className="p-6">
                             <div className="grid grid-cols-2 gap-6">
                               {/* Left: Job Details */}
                               <div>
@@ -488,6 +528,30 @@ export default function LeadsPage() {
                                               {copiedId === `answer-${lead.id}-${i}` ? '✓' : 'Copy'}
                                             </button>
                                           </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Hooks */}
+                                {lead.hooks && lead.hooks.length > 0 && (
+                                  <div className="mt-4">
+                                    <h4 className="font-medium text-gray-700 mb-2">Hook Options</h4>
+                                    <div className="space-y-2">
+                                      {lead.hooks.map((hook, i) => (
+                                        <div key={i} className="bg-white rounded-lg p-3 border border-gray-200 flex items-start justify-between gap-2">
+                                          <span className="text-sm text-gray-700">{hook}</span>
+                                          <button
+                                            onClick={() => copyToClipboard(hook, `hook-${lead.id}-${i}`)}
+                                            className={`shrink-0 px-2 py-0.5 rounded text-xs transition-colors ${
+                                              copiedId === `hook-${lead.id}-${i}`
+                                                ? 'bg-green-600 text-white'
+                                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                                            }`}
+                                          >
+                                            {copiedId === `hook-${lead.id}-${i}` ? '✓' : 'Copy'}
+                                          </button>
                                         </div>
                                       ))}
                                     </div>
@@ -555,19 +619,33 @@ export default function LeadsPage() {
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="font-semibold text-sm text-gray-900">Proposal</h3>
-                          <button
-                            onClick={() => copyToClipboard(lead.proposal || '', `mobile-${lead.id}`)}
-                            className={`px-3 py-1 rounded text-sm transition-colors ${
-                              copiedId === `mobile-${lead.id}`
-                                ? 'bg-green-600 text-white'
-                                : 'bg-[#02210C] hover:bg-[#033612] text-white'
-                            }`}
-                          >
-                            {copiedId === `mobile-${lead.id}` ? 'Copied!' : 'Copy'}
-                          </button>
+                          {lead.proposal ? (
+                            <button
+                              onClick={() => copyToClipboard(lead.proposal || '', `mobile-${lead.id}`)}
+                              className={`px-3 py-1 rounded text-sm transition-colors ${
+                                copiedId === `mobile-${lead.id}`
+                                  ? 'bg-green-600 text-white'
+                                  : 'bg-[#02210C] hover:bg-[#033612] text-white'
+                              }`}
+                            >
+                              {copiedId === `mobile-${lead.id}` ? 'Copied!' : 'Copy'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => generateProposal(lead.id)}
+                              disabled={generatingId === lead.id}
+                              className={`px-3 py-1 rounded text-sm transition-colors ${
+                                generatingId === lead.id
+                                  ? 'bg-gray-300 text-gray-500 cursor-wait'
+                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              }`}
+                            >
+                              {generatingId === lead.id ? 'Generating...' : 'Generate'}
+                            </button>
+                          )}
                         </div>
                         <div className="bg-white rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap max-h-48 overflow-y-auto border border-gray-200">
-                          {lead.proposal || 'No proposal generated'}
+                          {lead.proposal || 'Click Generate to create proposal'}
                         </div>
                       </div>
 
@@ -592,6 +670,30 @@ export default function LeadsPage() {
                                     {copiedId === `mobile-answer-${lead.id}-${i}` ? '✓' : 'Copy'}
                                   </button>
                                 </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hooks */}
+                      {lead.hooks && lead.hooks.length > 0 && (
+                        <div className="mb-4">
+                          <h3 className="font-semibold text-sm mb-2 text-gray-900">Hook Options</h3>
+                          <div className="space-y-2">
+                            {lead.hooks.map((hook, i) => (
+                              <div key={i} className="bg-white rounded-lg p-3 border border-gray-200 flex items-start justify-between gap-2">
+                                <span className="text-sm text-gray-700">{hook}</span>
+                                <button
+                                  onClick={() => copyToClipboard(hook, `mobile-hook-${lead.id}-${i}`)}
+                                  className={`shrink-0 px-2 py-0.5 rounded text-xs transition-colors ${
+                                    copiedId === `mobile-hook-${lead.id}-${i}`
+                                      ? 'bg-green-600 text-white'
+                                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                                  }`}
+                                >
+                                  {copiedId === `mobile-hook-${lead.id}-${i}` ? '✓' : 'Copy'}
+                                </button>
                               </div>
                             ))}
                           </div>

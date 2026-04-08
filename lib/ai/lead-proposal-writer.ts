@@ -19,6 +19,7 @@ interface LeadJobData {
 interface ProposalResult {
   proposal: string;
   screeningAnswers: Record<string, string>;
+  hooks: string[];
   score: number;
 }
 
@@ -80,6 +81,7 @@ function parseResponse(text: string): ProposalResult {
     return {
       proposal: parsed.proposal || '',
       screeningAnswers: parsed.screeningAnswers || {},
+      hooks: Array.isArray(parsed.hooks) ? parsed.hooks : [],
       score: typeof parsed.score === 'number' ? parsed.score : 50,
     };
   } catch {
@@ -87,6 +89,7 @@ function parseResponse(text: string): ProposalResult {
     return {
       proposal: text,
       screeningAnswers: {},
+      hooks: [],
       score: 50,
     };
   }

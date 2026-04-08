@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { upsertLead } from '@/lib/leads';
-import { generateLeadProposal } from '@/lib/ai/lead-proposal-writer';
 import { UpworkLead } from '@/types';
 import { supabase } from '@/lib/supabase';
 
@@ -153,18 +152,16 @@ export async function POST(request: NextRequest) {
       // Transform payload to lead format
       const jobData = transformPayload(project);
 
-      // Generate proposal using Claude
-      const { proposal, screeningAnswers, score } = await generateLeadProposal(
-        jobData,
-        project.questions || []
-      );
+      // Don't auto-generate proposals - user will click Generate button
+      // This saves API costs
 
-      // Build lead object
+      // Build lead object without proposal
       const lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'> = {
         ...jobData,
-        proposal,
-        screeningAnswers,
-        score,
+        proposal: null,
+        screeningAnswers: null,
+        hooks: null,
+        score: null,
         status: 'new',
       };
 
@@ -183,7 +180,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt' | 'proposal' | 'screeningAnswers' | 'score' | 'status'> {
+function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt' | 'proposal' | 'screeningAnswers' | 'hooks' | 'score' | 'status'> {
   // Budget is a string like "750 USD" or "25 - 60 USD"
   const budget = project.budget || null;
   const budgetType: 'fixed' | 'hourly' | null = project.budget_type === 'hourly' ? 'hourly' : project.budget_type === 'fixed' ? 'fixed' : null;

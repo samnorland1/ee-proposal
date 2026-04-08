@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllLeads, createLead } from '@/lib/leads';
-import { generateLeadProposal } from '@/lib/ai/lead-proposal-writer';
 import { LeadStatus, UpworkLead } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -42,17 +41,13 @@ export async function POST(request: NextRequest) {
       jobUrl: body.jobUrl || body.url || '',
     };
 
-    // Generate proposal
-    const { proposal, screeningAnswers, score } = await generateLeadProposal(
-      jobData,
-      body.questions || []
-    );
-
+    // Don't auto-generate - user clicks Generate button
     const lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'> = {
       ...jobData,
-      proposal,
-      screeningAnswers,
-      score,
+      proposal: null,
+      screeningAnswers: null,
+      hooks: null,
+      score: null,
       status: 'new',
     };
 
