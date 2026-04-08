@@ -359,20 +359,20 @@ export default function LeadsPage() {
         ) : (
           <>
             {/* Desktop Table */}
-            <div className="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <table className="w-full">
+            <div className="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden overflow-x-auto">
+              <table className="w-full min-w-[1200px]">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm">Job</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-28">Budget</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-28">Spend</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-28">Location</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-20">Rating</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-24">Hires</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-24">Posted</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-20">Score</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-24">Status</th>
-                    <th className="text-left p-4 font-medium text-gray-500 text-sm w-52">Actions</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs min-w-[300px]">Job</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-20">Budget</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-24">Spend</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-24">Location</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-14">Rating</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-20">Hires</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-16">Posted</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-14">Score</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-16">Status</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-44">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -383,33 +383,33 @@ export default function LeadsPage() {
                         onClick={() => setExpandedLead(expandedLead === lead.id ? null : lead.id)}
                         className="border-t border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                       >
-                        <td className="p-4">
-                          <div className="font-medium text-gray-900">{lead.title}</div>
-                          <div className="text-sm text-gray-500 mt-1">
+                        <td className="py-2 px-3">
+                          <div className="font-medium text-gray-900 text-sm">{lead.title}</div>
+                          <div className="text-xs text-gray-500">
                             {lead.skills.slice(0, 3).join(' · ')}
                             {lead.skills.length > 3 && ` +${lead.skills.length - 3}`}
                           </div>
                         </td>
-                        <td className="p-4 text-gray-600">{lead.budget || '—'}</td>
-                        <td className="p-4 text-gray-600 text-sm">{lead.clientSpend || '—'}</td>
-                        <td className="p-4 text-gray-600 text-sm">{lead.clientCountry || '—'}</td>
-                        <td className="p-4 text-gray-600 text-sm">{lead.clientReviewScore || '—'}</td>
-                        <td className="p-4 text-gray-600 text-sm">{lead.clientHireRate || '—'}</td>
-                        <td className="p-4 text-gray-500 text-sm">{formatTimeAgo(lead.postedAt)}</td>
-                        <td className={`p-4 font-bold ${getScoreColor(lead.score)}`}>
+                        <td className="py-2 px-3 text-gray-600 text-xs">{lead.budget || '—'}</td>
+                        <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientSpend || '—'}</td>
+                        <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientCountry || '—'}</td>
+                        <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientReviewScore || '—'}</td>
+                        <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientHireRate || '—'}</td>
+                        <td className="py-2 px-3 text-gray-500 text-xs">{formatTimeAgo(lead.postedAt)}</td>
+                        <td className={`py-2 px-3 font-bold text-xs ${getScoreColor(lead.score)}`}>
                           {lead.score ? `${lead.score}%` : '—'}
                         </td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadge(lead.status)}`}>
+                        <td className="py-2 px-3">
+                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(lead.status)}`}>
                             {lead.status}
                           </span>
                         </td>
-                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-2">
+                        <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-1">
                             {lead.proposal ? (
                               <button
                                 onClick={() => copyToClipboard(lead.proposal || '', `proposal-${lead.id}`)}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                                   copiedId === `proposal-${lead.id}`
                                     ? 'bg-green-600 text-white'
                                     : 'bg-[#02210C] hover:bg-[#033612] text-white'
@@ -421,26 +421,26 @@ export default function LeadsPage() {
                               <button
                                 onClick={() => generateProposal(lead.id)}
                                 disabled={generatingId === lead.id}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                                   generatingId === lead.id
                                     ? 'bg-gray-300 text-gray-500 cursor-wait'
                                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                                 }`}
                               >
-                                {generatingId === lead.id ? 'Generating...' : 'Generate'}
+                                {generatingId === lead.id ? '...' : 'Generate'}
                               </button>
                             )}
                             {lead.status === 'new' && (
                               <>
                                 <button
                                   onClick={() => updateStatus(lead.id, 'applied')}
-                                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-green-100 hover:bg-green-200 text-green-700 transition-colors"
+                                  className="px-2 py-1 rounded text-xs font-medium bg-green-100 hover:bg-green-200 text-green-700 transition-colors"
                                 >
                                   Applied
                                 </button>
                                 <button
                                   onClick={() => updateStatus(lead.id, 'skipped')}
-                                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                                  className="px-2 py-1 rounded text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
                                 >
                                   Skip
                                 </button>
@@ -450,13 +450,13 @@ export default function LeadsPage() {
                               <>
                                 <button
                                   onClick={() => updateStatus(lead.id, 'won')}
-                                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-100 hover:bg-emerald-200 text-emerald-700 transition-colors"
+                                  className="px-2 py-1 rounded text-xs font-medium bg-emerald-100 hover:bg-emerald-200 text-emerald-700 transition-colors"
                                 >
                                   Won
                                 </button>
                                 <button
                                   onClick={() => updateStatus(lead.id, 'lost')}
-                                  className="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
+                                  className="px-2 py-1 rounded text-xs font-medium bg-red-100 hover:bg-red-200 text-red-600 transition-colors"
                                 >
                                   Lost
                                 </button>
