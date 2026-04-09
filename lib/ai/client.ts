@@ -1,24 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
 
 let anthropic: Anthropic | null = null;
-let openai: OpenAI | null = null;
 
 function getAnthropic() {
   if (!anthropic) {
     anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
   return anthropic;
-}
-
-function getOpenAI() {
-  if (!openai) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OpenAI fallback unavailable - no API key configured');
-    }
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
 }
 
 interface Message {
@@ -87,30 +75,6 @@ async function callClaudeWithRetry(
 
 export async function complete(options: CompletionOptions): Promise<string> {
   const { system, messages, maxTokens } = options;
-
-  try {
-    return await callClaudeWithRetry(system, messages, maxTokens);
-  } catch (err: unknown) {
-    if (!isOverloadedError(err)) {
-      throw err;
-    }
-
-    console.log('Claude still overloaded after retries, falling back to GPT-4o-mini');
-
-    const openaiMessages: OpenAI.ChatCompletionMessageParam[] = [];
-    if (system) {
-      openaiMessages.push({ role: 'system', content: system });
-    }
-    for (const m of messages) {
-      openaiMessages.push({ role: m.role, content: m.content });
-    }
-
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
-      max_tokens: maxTokens,
-      messages: openaiMessages,
-    });
-
-    return response.choices[0]?.message?.content || '';
-  }
+  // Always use Opus 4.6 - no fallback to other models
+  return await callClaudeWithRetry(system, messages, maxTokens);
 }
