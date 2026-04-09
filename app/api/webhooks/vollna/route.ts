@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { upsertLead } from '@/lib/leads';
+import { upsertLead, getLeadByJobId } from '@/lib/leads';
 import { UpworkLead } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { scoreLeadFast } from '@/lib/ai/lead-scorer';
 
 // Vollna's actual webhook payload structure (snake_case)
 interface VollnaProject {
@@ -152,20 +153,38 @@ export async function POST(request: NextRequest) {
       // Transform payload to lead format
       const jobData = transformPayload(project);
 
-      // Don't auto-generate proposals - user will click Generate button
-      // This saves API costs
+      // Check if lead already exists (skip scoring if it does)
+      const existingLead = await getLeadByJobId(jobData.jobId);
 
-      // Build lead object without proposal
+      let score: number | null = null;
+      if (!existingLead) {
+        // Only score new leads (saves API calls on duplicates)
+        const result = await scoreLeadFast({
+          title: jobData.title,
+          description: jobData.description,
+          budget: jobData.budget,
+          budgetType: jobData.budgetType,
+          category: jobData.category,
+          skills: jobData.skills,
+          clientCountry: jobData.clientCountry,
+          clientSpend: jobData.clientSpend,
+          clientHireRate: jobData.clientHireRate,
+          clientReviewScore: jobData.clientReviewScore,
+        });
+        score = result.score;
+      }
+
+      // Build lead object with score but no proposal
       const lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'> = {
         ...jobData,
         proposal: null,
         screeningAnswers: null,
         hooks: null,
-        score: null,
+        score,
         status: 'new',
       };
 
-      // Upsert to database (updates if job_id exists)
+      // Upsert to database (updates if job_id exists, preserves score/proposal/status)
       const savedLead = await upsertLead(lead, project);
       savedLeadIds.push(savedLead.id);
     }
