@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
     const lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'> = {
       ...jobData,
       proposal: null,
+      screeningQuestions: null,
       screeningAnswers: null,
       hooks: null,
       score: null,
