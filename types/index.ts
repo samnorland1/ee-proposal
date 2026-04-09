@@ -169,6 +169,7 @@ export interface UpworkLead {
   postedAt: string;
   jobUrl: string;
   proposal: string | null;
+  screeningQuestions: string[] | null;
   screeningAnswers: Record<string, string> | null;
   hooks: string[] | null;
   score: number | null;

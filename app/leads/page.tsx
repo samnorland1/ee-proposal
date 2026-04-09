@@ -148,6 +148,25 @@ export default function LeadsPage() {
     return 'Just now';
   }
 
+  function formatSpend(spend: string | null) {
+    if (!spend) return '—';
+    // Extract number from string like "$15126.04"
+    const match = spend.match(/[\d,.]+/);
+    if (!match) return spend;
+    const num = parseFloat(match[0].replace(/,/g, ''));
+    if (isNaN(num)) return spend;
+
+    if (num >= 1000) {
+      // Round to nearest $1k
+      const rounded = Math.round(num / 1000) * 1000;
+      return `$${(rounded / 1000).toFixed(0)}k`;
+    } else {
+      // Round to nearest $100
+      const rounded = Math.round(num / 100) * 100;
+      return `$${rounded}`;
+    }
+  }
+
   function getScoreColor(score: number | null) {
     if (!score) return 'text-gray-400';
     if (score >= 80) return 'text-green-600';
@@ -391,7 +410,7 @@ export default function LeadsPage() {
                           </div>
                         </td>
                         <td className="py-2 px-3 text-gray-600 text-xs">{lead.budget || '—'}</td>
-                        <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientSpend || '—'}</td>
+                        <td className="py-2 px-3 text-gray-600 text-xs">{formatSpend(lead.clientSpend)}</td>
                         <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientCountry || '—'}</td>
                         <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientReviewScore || '—'}</td>
                         <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientHireRate || '—'}</td>
@@ -477,7 +496,7 @@ export default function LeadsPage() {
                                 </div>
                                 <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
                                   <div><span className="text-gray-500">Client:</span> {lead.clientCountry || 'Unknown'}</div>
-                                  <div><span className="text-gray-500">Spend:</span> {lead.clientSpend || 'Unknown'}</div>
+                                  <div><span className="text-gray-500">Spend:</span> {formatSpend(lead.clientSpend)}</div>
                                   <div><span className="text-gray-500">Hire Rate:</span> {lead.clientHireRate || 'Unknown'}</div>
                                   <div><span className="text-gray-500">Rating:</span> {lead.clientReviewScore || 'Unknown'}</div>
                                 </div>
@@ -610,7 +629,7 @@ export default function LeadsPage() {
                       {/* Client Info */}
                       <div className="grid grid-cols-2 gap-2 text-sm mb-4">
                         <div><span className="text-gray-500">Client:</span> {lead.clientCountry || 'Unknown'}</div>
-                        <div><span className="text-gray-500">Spend:</span> {lead.clientSpend || 'Unknown'}</div>
+                        <div><span className="text-gray-500">Spend:</span> {formatSpend(lead.clientSpend)}</div>
                         <div><span className="text-gray-500">Hire Rate:</span> {lead.clientHireRate || 'Unknown'}</div>
                         <div><span className="text-gray-500">Rating:</span> {lead.clientReviewScore || 'Unknown'}</div>
                       </div>

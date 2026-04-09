@@ -15,7 +15,7 @@ export async function POST(
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
-    // Generate proposal
+    // Generate proposal with screening questions if present
     const { proposal, screeningAnswers, hooks, score } = await generateLeadProposal(
       {
         title: lead.title,
@@ -30,7 +30,7 @@ export async function POST(
         clientReviewScore: lead.clientReviewScore,
         clientFirstName: lead.clientFirstName,
       },
-      [] // No screening questions for now
+      lead.screeningQuestions || []
     );
 
     // Update the lead with generated proposal

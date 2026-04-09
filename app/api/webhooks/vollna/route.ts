@@ -178,6 +178,7 @@ export async function POST(request: NextRequest) {
       const lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'> = {
         ...jobData,
         proposal: null,
+        screeningQuestions: jobData.screeningQuestions,
         screeningAnswers: null,
         hooks: null,
         score,
@@ -218,6 +219,11 @@ function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'crea
   // Client details use snake_case
   const client = project.client_details;
 
+  // Screening questions from Vollna
+  const screeningQuestions = project.questions && project.questions.length > 0
+    ? project.questions
+    : null;
+
   return {
     jobId,
     title: project.title,
@@ -233,6 +239,7 @@ function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'crea
     clientFirstName,
     postedAt: project.published || new Date().toISOString(),
     jobUrl: project.url || '',
+    screeningQuestions,
   };
 }
 

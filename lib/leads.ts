@@ -19,8 +19,8 @@ function toRow(lead: Partial<UpworkLead> & { jobId: string }) {
     posted_at: lead.postedAt ?? null,
     job_url: lead.jobUrl ?? null,
     proposal: lead.proposal ?? null,
+    screening_questions: lead.screeningQuestions ?? null,
     screening_answers: lead.screeningAnswers ?? null,
-    // hooks column - add via Supabase dashboard: ALTER TABLE upwork_leads ADD COLUMN hooks jsonb DEFAULT NULL;
     score: lead.score ?? null,
     status: lead.status ?? 'new',
   };
@@ -47,6 +47,7 @@ function fromRow(row: any): UpworkLead {
     postedAt: row.posted_at,
     jobUrl: row.job_url,
     proposal: row.proposal,
+    screeningQuestions: row.screening_questions ?? null,
     screeningAnswers: row.screening_answers,
     hooks: row.hooks ?? null,
     score: row.score,
