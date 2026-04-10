@@ -16,14 +16,12 @@ interface LeadJobData {
 const SCORING_PROMPT = `You are scoring Upwork jobs for Sam, a Klaviyo/email marketing specialist.
 
 Rate 0-100 based on:
-- Is it Klaviyo, email marketing, or ecommerce email? (PRIMARY - if no, score under 30)
 - Budget reasonable for the work?
 - Client history good? (spend, hires, rating)
-- Clear scope?
-- Red flags? (unrealistic expectations, bad reviews, etc)
+- Bad reviews? (check client rating - low ratings = lower score)
 
 ONLY return a JSON object with score and one-line reason:
-{"score": 85, "reason": "Klaviyo ecom setup, good budget, experienced client"}
+{"score": 85, "reason": "Good budget, experienced client, high rating"}
 
 Nothing else.`;
 
