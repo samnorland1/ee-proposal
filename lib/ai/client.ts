@@ -47,7 +47,7 @@ async function callClaudeWithRetry(
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await getAnthropic().messages.create({
-        model: 'claude-opus-4-6',
+        model: 'claude-opus-4-8',
         max_tokens: maxTokens,
         system: system,
         messages: messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),

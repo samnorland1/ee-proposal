@@ -25,12 +25,13 @@ interface ProposalResult {
 
 export async function generateLeadProposal(
   job: LeadJobData,
-  screeningQuestions: string[] = []
+  screeningQuestions: string[] = [],
+  feedback?: string
 ): Promise<ProposalResult> {
   // Fetch live accomplishments from Google Doc
   const accomplishments = await fetchAccomplishments();
 
-  const userPrompt = buildUserPrompt(job, screeningQuestions, accomplishments);
+  const userPrompt = buildUserPrompt(job, screeningQuestions, accomplishments, feedback);
 
   const text = await complete({
     system: LEAD_PROPOSAL_SYSTEM,
@@ -41,7 +42,7 @@ export async function generateLeadProposal(
   return parseResponse(text);
 }
 
-function buildUserPrompt(job: LeadJobData, screeningQuestions: string[], accomplishments: string): string {
+function buildUserPrompt(job: LeadJobData, screeningQuestions: string[], accomplishments: string, feedback?: string): string {
   return `Analyze this job and write a proposal:
 
 ## Job Details
@@ -54,7 +55,7 @@ function buildUserPrompt(job: LeadJobData, screeningQuestions: string[], accompl
 ${job.description}
 
 ## Client Info
-- First Name: ${job.clientFirstName || 'Unknown (use just "Hi" for greeting)'}
+- First Name: ${job.clientFirstName || 'Unknown — DO NOT include any greeting at all. No "Hi," no name, nothing. Start directly with the hook.'}
 - Country: ${job.clientCountry || 'Unknown'}
 - Total Spend: ${job.clientSpend || 'Unknown'}
 - Hire Rate: ${job.clientHireRate || 'Unknown'}
@@ -65,7 +66,9 @@ ${accomplishments}
 
 ${screeningQuestions.length > 0 ? `## Screening Questions (MUST answer each one)\n${screeningQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}` : ''}
 
-Write a personalized proposal. Pick ONE case study/result from the accomplishments above that best matches what this client needs. Do NOT make up results - only use what's in the accomplishments section.`;
+${feedback ? `## Feedback on Previous Proposal\nThe previous version was not right. Address every point in this feedback:\n${feedback}\n` : ''}Write a personalized proposal. Pick ONE case study/result from the accomplishments above that best matches what this client needs. Do NOT make up results - only use what's in the accomplishments section.
+
+BEFORE YOU WRITE THE FIRST LINE: The hook must open with the OUTCOME or RESULT the client wants to achieve — what they stand to GAIN. Do NOT open with their problem, pain point, what's broken, or what you do. Do NOT write things like "most accounts have broken flows" or "a lot of brands struggle with X" — that is pain framing, not outcome framing. The hook should make them picture a better future state, not remind them of their current problem.`;
 }
 
 function parseResponse(text: string): ProposalResult {
