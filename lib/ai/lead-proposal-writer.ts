@@ -1,6 +1,7 @@
 import { complete } from './client';
 import { LEAD_PROPOSAL_SYSTEM } from '@/lib/prompts/lead-proposal';
 import { fetchAccomplishments } from '@/lib/case-studies';
+import { getRecentProposals } from '@/lib/leads';
 
 interface LeadJobData {
   title: string;
@@ -29,9 +30,12 @@ export async function generateLeadProposal(
   feedback?: string
 ): Promise<ProposalResult> {
   // Fetch live accomplishments from Google Doc
-  const accomplishments = await fetchAccomplishments();
+  const [accomplishments, recentProposals] = await Promise.all([
+    fetchAccomplishments(),
+    getRecentProposals(4),
+  ]);
 
-  const userPrompt = buildUserPrompt(job, screeningQuestions, accomplishments, feedback);
+  const userPrompt = buildUserPrompt(job, screeningQuestions, accomplishments, feedback, recentProposals);
 
   const text = await complete({
     system: LEAD_PROPOSAL_SYSTEM,
@@ -42,7 +46,7 @@ export async function generateLeadProposal(
   return parseResponse(text);
 }
 
-function buildUserPrompt(job: LeadJobData, screeningQuestions: string[], accomplishments: string, feedback?: string): string {
+function buildUserPrompt(job: LeadJobData, screeningQuestions: string[], accomplishments: string, feedback?: string, recentProposals: string[] = []): string {
   return `Analyze this job and write a proposal:
 
 ## Job Details
@@ -66,7 +70,12 @@ ${accomplishments}
 
 ${screeningQuestions.length > 0 ? `## Screening Questions (MUST answer each one)\n${screeningQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}` : ''}
 
-${feedback ? `## Feedback on Previous Proposal\nThe previous version was not right. Address every point in this feedback:\n${feedback}\n` : ''}Write a personalized proposal. Pick ONE case study/result from the accomplishments above that best matches what this client needs. Do NOT make up results - only use what's in the accomplishments section.
+${recentProposals.length > 0 ? `## RECENTLY USED CASE STUDIES — DO NOT REPEAT
+The last ${recentProposals.length} proposals used these case studies. Pick a DIFFERENT one from the accomplishments doc this time:
+${recentProposals.map((p, i) => `--- Recent proposal ${i + 1} ---\n${p.slice(0, 300)}`).join('\n')}
+---
+You MUST use a different case study with different numbers. Do not reuse any specific stats or results shown above.
+` : ''}${feedback ? `## Feedback on Previous Proposal\nThe previous version was not right. Address every point in this feedback:\n${feedback}\n` : ''}Write a personalized proposal. Pick ONE case study/result from the accomplishments above that best matches what this client needs. Do NOT make up results - only use what's in the accomplishments section.
 
 BEFORE YOU WRITE THE FIRST LINE: The hook must open with the OUTCOME or RESULT the client wants to achieve — what they stand to GAIN. Do NOT open with their problem, pain point, what's broken, or what you do. Do NOT write things like "most accounts have broken flows" or "a lot of brands struggle with X" — that is pain framing, not outcome framing. The hook should make them picture a better future state, not remind them of their current problem.`;
 }

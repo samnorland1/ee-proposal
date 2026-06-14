@@ -23,6 +23,7 @@ function toRow(lead: Partial<UpworkLead> & { jobId: string }) {
     screening_answers: lead.screeningAnswers ?? null,
     score: lead.score ?? null,
     status: lead.status ?? 'new',
+    applied_at: lead.appliedAt ?? null,
   };
 }
 
@@ -52,14 +53,18 @@ function fromRow(row: any): UpworkLead {
     hooks: row.hooks ?? null,
     score: row.score,
     status: row.status,
+    appliedAt: row.applied_at ?? null,
   };
 }
 
 export async function getAllLeads(status?: LeadStatus): Promise<UpworkLead[]> {
+  const appliedStatuses: LeadStatus[] = ['applied', 'won', 'lost'];
+  const orderColumn = status && appliedStatuses.includes(status) ? 'applied_at' : 'created_at';
+
   let query = supabase
     .from('upwork_leads')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order(orderColumn, { ascending: false });
 
   if (status) {
     query = query.eq('status', status);
@@ -162,7 +167,12 @@ export async function upsertLead(
 export async function updateLead(id: string, updates: Partial<UpworkLead>): Promise<UpworkLead> {
   const dbUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-  if (updates.status !== undefined) dbUpdates.status = updates.status;
+  if (updates.status !== undefined) {
+    dbUpdates.status = updates.status;
+    if (updates.status === 'applied') {
+      dbUpdates.applied_at = new Date().toISOString();
+    }
+  }
   if (updates.proposal !== undefined) dbUpdates.proposal = updates.proposal;
   if (updates.screeningAnswers !== undefined) dbUpdates.screening_answers = updates.screeningAnswers;
   // hooks column doesn't exist yet - add via Supabase dashboard if needed
@@ -177,6 +187,17 @@ export async function updateLead(id: string, updates: Partial<UpworkLead>): Prom
     .single();
   if (error) throw new Error(error.message);
   return fromRow(data);
+}
+
+export async function getRecentProposals(limit = 4): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('upwork_leads')
+    .select('proposal')
+    .not('proposal', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return (data ?? []).map((r: { proposal: string }) => r.proposal).filter(Boolean);
 }
 
 export async function deleteLead(id: string): Promise<void> {
