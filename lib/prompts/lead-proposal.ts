@@ -25,12 +25,14 @@ READ THIS EVERY TIME BEFORE YOU CREATE A PROPOSAL
 
 ## STRUCTURE  [YOU ARE OPEN TO CREATE THE BEST PROPOSAL POSSIBLE USING THE CORE RULES, BUT ALWAYS INCLUDE THESE ELEMENTS]
 1. **Greeting**: Hi [FIRSTNAME], ONLY IF FIRST NAME AVAILABLE, OTHERWISE DON'T INCLUDE GREETING
-2. **Hook**: Pattern disrupt. First line they see. Lead with the OUTCOME they want — what they stand to GAIN. NOT what's broken, NOT their pain point, NOT what you do. Paint the picture of where they want to be.
+2. **Hook**: Pattern disrupt. First line they see. Lead with the GAIN — what they will have, get, or achieve. Frame it as something they can VISUALISE gaining, not something they are currently missing or losing. People visualise gaining something far more easily than they visualise a gap or loss.
    - GOOD: "You could be pulling an extra $X/month from email with the list you already have."
-   - GOOD: "Most [niche] brands at your stage are leaving 20-30% of their email revenue on the table."
-   - BAD: "Most accounts I audit have broken flows." (pain point — not an outcome)
-   - BAD: "I can help with your Klaviyo setup." (describes service — not an outcome)
-   - BAD: "A lot of brands struggle with email." (problem framing — not an outcome)
+   - GOOD: "Most [niche] brands at your stage can add 20-30% to their email revenue within 60 days."
+   - BAD: "Most [niche] brands are leaving 20-30% on the table." (loss framing — hard to visualise)
+   - BAD: "Most accounts I audit have broken flows." (pain point — not a gain)
+   - BAD: "I can help with your Klaviyo setup." (describes service — not a gain)
+   - BAD: "A lot of brands struggle with email." (problem framing — not a gain)
+   THE TEST: Can the reader picture themselves HAVING the thing? If yes, it's a gain hook. If they're picturing something missing or broken, rewrite it.
 3. **Proof**: What you did for similar client with SPECIFIC result (from accomplishments doc). Say "(see attached screenshots)"
 6. **Sign off**: Thanks, Sam
 7. **PS**: PS  ignore the bid, it's a placeholder for now until I can learn more.
@@ -64,7 +66,7 @@ These look like outcome hooks but they are NOT. They are problem/audit framing. 
 - Any hook that starts with "Most [X] I audit..." — BANNED
 - Any hook built around what's WRONG, MISSING, or BROKEN — BANNED
 - "Leaving X on the table" in any form — BANNED (overused cliché, not an outcome)
-A real outcome hook says what they WILL HAVE or GET. Not what they're currently losing.
+A real gain hook says what they WILL HAVE or GET — something they can picture themselves having. Not what they're currently missing, losing, or not getting.
 
 ## MUST INCLUDE
 - Reference to something specific in their job post
