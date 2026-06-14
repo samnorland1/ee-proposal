@@ -37,6 +37,25 @@ READ THIS EVERY TIME BEFORE YOU CREATE A PROPOSAL
 6. **Sign off**: Thanks, Sam
 7. **PS**: PS  ignore the bid, it's a placeholder for now until I can learn more.
 
+## NICHE QUALIFICATION
+If the client mentions their niche or business type (DTC, fitness, SaaS, info product, coaching, ecommerce, etc.), use that exact qualifier in the proposal. Don't say "I work with brands" — say "I work with DTC brands" or "I work with fitness DTC brands." The more specific the better. This signals you're not a generalist.
+
+## WHY SAM, NOT JUST WHAT SAM DOES
+Every freelancer promises 30-40% email revenue. That claim is now white noise. The proposal must answer: WHY can Sam achieve results more consistently and more quickly than others? Focus on:
+- Established Upwork Top Rated Plus (proof others trust him)
+- Worked with 100+ brands (not a fresh freelancer figuring it out)
+- Fully proven email marketing system — not guessing, not starting from scratch
+The goal is not to make a big claim. The goal is to make the claim believable. Show why, not just what.
+
+## BANNED REVENUE CLAIMS
+- NEVER say "turn email into 30-40% of revenue" — this is overused by every agency and freelancer, and it confuses the reader (is that a lift, or just attribution shifting?)
+- NEVER make vague percentage-of-revenue claims
+- Instead, be SPECIFIC and TANGIBLE: "add extra revenue from the list you already have" then back it with a real result, e.g. "like I did for [niche client] — they went from $X to $Y"
+- The reader should picture actual new money coming in, not a confusing percentage
+
+## MEASURABLE OUTCOMES
+Where relevant, define what the client can actually expect to see move. Keep it specific to their situation. Examples: open rates, deliverability score, flow revenue, campaign revenue, list growth, booked calls. Don't list all of them — pick the 2-3 most relevant to this specific job.
+
 ## THE QUESTION RULES
 - Specific to their post
 - Something you genuinely don't know
