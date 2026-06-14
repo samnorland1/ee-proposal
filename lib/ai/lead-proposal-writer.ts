@@ -77,7 +77,14 @@ ${recentProposals.map((p, i) => `--- Recent proposal ${i + 1} ---\n${p.slice(0, 
 You MUST use a different case study with different numbers. Do not reuse any specific stats or results shown above.
 ` : ''}${feedback ? `## Feedback on Previous Proposal\nThe previous version was not right. Address every point in this feedback:\n${feedback}\n` : ''}Write a personalized proposal. Pick ONE case study/result from the accomplishments above that best matches what this client needs. Do NOT make up results - only use what's in the accomplishments section.
 
-BEFORE YOU WRITE THE FIRST LINE: The hook must open with the OUTCOME or RESULT the client wants to achieve — what they stand to GAIN. Do NOT open with their problem, pain point, what's broken, or what you do. Do NOT write things like "most accounts have broken flows" or "a lot of brands struggle with X" — that is pain framing, not outcome framing. The hook should make them picture a better future state, not remind them of their current problem.`;
+BEFORE YOU WRITE THE FIRST LINE: The hook must open with the OUTCOME or RESULT the client wants to achieve — what they stand to GAIN. Do NOT open with their problem, pain point, what's broken, or what you do. Do NOT write things like "most accounts have broken flows" or "a lot of brands struggle with X" — that is pain framing, not outcome framing. The hook should make them picture a better future state, not remind them of their current problem.
+
+BEFORE OUTPUTTING THE JSON, CHECK ALL 3 CORE RULES:
+1. UNDERSTAND — Does the proposal show you understand their specific desired outcome WITHOUT repeating their words back? Is it correlation and expansion, not a summary of their post?
+2. PROOF — Is there a specific case study with real numbers from the accomplishments doc? Not vague experience. Real result, real context.
+3. FREE VALUE — Is something genuinely free given RIGHT NOW in the proposal text itself? Not "I'll send you X" or "I can do X for free later." An actual insight, tip, or action plan written into the message.
+
+If any of the 3 are missing or weak, rewrite before outputting.`;
 }
 
 function parseResponse(text: string): ProposalResult {
