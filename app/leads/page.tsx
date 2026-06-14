@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { UpworkLead, LeadStatus } from '@/types';
 
-type FilterStatus = 'all' | LeadStatus;
+type FilterStatus = 'all' | LeadStatus | 'starred' | 'generated';
 
 interface VollnaStats {
   sent: number;
@@ -30,9 +30,16 @@ export default function LeadsPage() {
   const [vollnaLoading, setVollnaLoading] = useState(false);
   const [vollnaError, setVollnaError] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState<Record<string, string>>({});
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchAllLeads();
+    // Load starred IDs from localStorage
+    try {
+      const saved = localStorage.getItem('starredLeads');
+      if (saved) setStarredIds(new Set(JSON.parse(saved)));
+    } catch { /* ignore */ }
     // Load cached Vollna stats from localStorage
     const cached = localStorage.getItem('vollnaStats');
     if (cached) {
@@ -86,6 +93,10 @@ export default function LeadsPage() {
   }
 
   async function fetchLeads() {
+    if (filter === 'starred' || filter === 'generated') {
+      // Client-side filters — derive from allLeads
+      return;
+    }
     setLoading(true);
     try {
       const url = filter === 'all' ? '/api/leads' : `/api/leads?status=${filter}`;
@@ -96,6 +107,15 @@ export default function LeadsPage() {
       console.error('Failed to fetch leads:', error);
     }
     setLoading(false);
+  }
+
+  function toggleStar(id: string) {
+    setStarredIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem('starredLeads', JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
   }
 
   async function updateStatus(id: string, status: LeadStatus) {
@@ -118,11 +138,16 @@ export default function LeadsPage() {
     setTimeout(() => setCopiedId(null), 2000);
   }
 
-  async function generateProposal(id: string) {
+  async function generateProposal(id: string, feedback?: string) {
     setGeneratingId(id);
     try {
-      const res = await fetch(`/api/leads/${id}/generate`, { method: 'POST' });
+      const res = await fetch(`/api/leads/${id}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback }),
+      });
       if (res.ok) {
+        setFeedbackText(prev => ({ ...prev, [id]: '' }));
         fetchLeads();
         fetchAllLeads();
       } else {
@@ -146,6 +171,12 @@ export default function LeadsPage() {
     if (days > 0) return `${days}d ago`;
     if (hours > 0) return `${hours}h ago`;
     return 'Just now';
+  }
+
+  function formatAppliedDate(dateString: string | null) {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
   }
 
   function formatSpend(spend: string | null) {
@@ -204,13 +235,19 @@ export default function LeadsPage() {
     ? (stats.won / (stats.applied + stats.won + stats.lost) * 100).toFixed(1)
     : '0';
 
+  const displayedLeads = filter === 'starred'
+    ? allLeads.filter(l => starredIds.has(l.id))
+    : filter === 'generated'
+    ? allLeads.filter(l => !!l.proposal)
+    : leads;
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <h1 className="text-xl md:text-2xl font-bold text-gray-900">Upwork Leads</h1>
           <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0">
-            {(['all', 'new', 'applied', 'won', 'lost', 'skipped'] as FilterStatus[]).map((status) => (
+            {(['all', 'new', 'applied', 'won', 'lost', 'skipped', 'starred', 'generated'] as FilterStatus[]).map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
@@ -220,7 +257,7 @@ export default function LeadsPage() {
                     : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === 'starred' ? '⭐ Starred' : status === 'generated' ? 'Generated' : status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
           </div>
@@ -371,7 +408,7 @@ export default function LeadsPage() {
         {/* Leads */}
         {loading ? (
           <div className="text-center py-12 text-gray-500">Loading...</div>
-        ) : leads.length === 0 ? (
+        ) : displayedLeads.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             No leads yet. Connect Vollna webhook to start receiving jobs.
           </div>
@@ -388,14 +425,17 @@ export default function LeadsPage() {
                     <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-24">Location</th>
                     <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-14">Rating</th>
                     <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-20">Hires</th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-16">Posted</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-16">Received</th>
+                    {['applied', 'won', 'lost'].includes(filter) && (
+                      <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-20">Applied</th>
+                    )}
                     <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-14">Score</th>
                     <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-16">Status</th>
                     <th className="text-left py-2 px-3 font-medium text-gray-500 text-xs w-44">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {leads.map((lead) => (
+                  {displayedLeads.map((lead) => (
                     <>
                       <tr
                         key={lead.id}
@@ -415,6 +455,9 @@ export default function LeadsPage() {
                         <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientReviewScore || '—'}</td>
                         <td className="py-2 px-3 text-gray-600 text-xs">{lead.clientHireRate || '—'}</td>
                         <td className="py-2 px-3 text-gray-500 text-xs">{formatTimeAgo(lead.postedAt)}</td>
+                        {['applied', 'won', 'lost'].includes(filter) && (
+                          <td className="py-2 px-3 text-gray-500 text-xs">{formatAppliedDate(lead.appliedAt ?? null)}</td>
+                        )}
                         <td className={`py-2 px-3 font-bold text-xs ${getScoreColor(lead.score)}`}>
                           {lead.score ? `${lead.score}%` : '—'}
                         </td>
@@ -425,6 +468,13 @@ export default function LeadsPage() {
                         </td>
                         <td className="py-2 px-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
+                            <button
+                              onClick={() => toggleStar(lead.id)}
+                              className="px-1.5 py-1 rounded text-sm transition-colors hover:bg-gray-100"
+                              title={starredIds.has(lead.id) ? 'Unstar' : 'Star'}
+                            >
+                              {starredIds.has(lead.id) ? '⭐' : '☆'}
+                            </button>
                             {lead.proposal ? (
                               <button
                                 onClick={() => copyToClipboard(lead.proposal || '', `proposal-${lead.id}`)}
@@ -486,7 +536,7 @@ export default function LeadsPage() {
                       </tr>
                       {expandedLead === lead.id && (
                         <tr key={`${lead.id}-expanded`} className="bg-gray-50">
-                          <td colSpan={10} className="p-6">
+                          <td colSpan={['applied', 'won', 'lost'].includes(filter) ? 11 : 10} className="p-6">
                             <div className="grid grid-cols-2 gap-6">
                               {/* Left: Job Details */}
                               <div>
@@ -525,6 +575,32 @@ export default function LeadsPage() {
                                 <div className="bg-white rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap max-h-80 overflow-y-auto border border-gray-200">
                                   {lead.proposal || 'No proposal generated'}
                                 </div>
+
+                                {/* Regenerate with Feedback */}
+                                {lead.proposal && (
+                                  <div className="mt-3">
+                                    <textarea
+                                      value={feedbackText[lead.id] || ''}
+                                      onChange={(e) => setFeedbackText(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                                      placeholder="What needs to change? e.g. hook is too generic, use the ecom checklist as the free offer..."
+                                      className="w-full p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                                      rows={2}
+                                    />
+                                    <button
+                                      onClick={() => generateProposal(lead.id, feedbackText[lead.id])}
+                                      disabled={generatingId === lead.id || !feedbackText[lead.id]?.trim()}
+                                      className={`mt-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                                        generatingId === lead.id
+                                          ? 'bg-gray-300 text-gray-500 cursor-wait'
+                                          : !feedbackText[lead.id]?.trim()
+                                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                          : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                      }`}
+                                    >
+                                      {generatingId === lead.id ? 'Regenerating...' : 'Regenerate with Feedback'}
+                                    </button>
+                                  </div>
+                                )}
 
                                 {/* Screening Answers */}
                                 {lead.screeningAnswers && Object.keys(lead.screeningAnswers).length > 0 && (
@@ -589,7 +665,7 @@ export default function LeadsPage() {
 
             {/* Mobile Cards */}
             <div className="lg:hidden space-y-3">
-              {leads.map((lead) => (
+              {displayedLeads.map((lead) => (
                 <div key={lead.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div
                     onClick={() => setExpandedLead(expandedLead === lead.id ? null : lead.id)}
@@ -597,7 +673,12 @@ export default function LeadsPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 truncate">{lead.title}</div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={(e) => { e.stopPropagation(); toggleStar(lead.id); }} className="text-base leading-none shrink-0">
+                            {starredIds.has(lead.id) ? '⭐' : '☆'}
+                          </button>
+                          <div className="font-medium text-gray-900 truncate">{lead.title}</div>
+                        </div>
                         <div className="text-sm text-gray-500 mt-1">
                           {lead.skills.slice(0, 2).join(' · ')}
                           {lead.skills.length > 2 && ` +${lead.skills.length - 2}`}
@@ -610,6 +691,9 @@ export default function LeadsPage() {
                     <div className="flex items-center gap-4 mt-3 text-sm">
                       <span className="text-gray-600">{lead.budget || 'No budget'}</span>
                       <span className="text-gray-500">{formatTimeAgo(lead.postedAt)}</span>
+                      {['applied', 'won', 'lost'].includes(filter) && lead.appliedAt && (
+                        <span className="text-gray-500">Applied {formatAppliedDate(lead.appliedAt)}</span>
+                      )}
                       <span className={`font-bold ${getScoreColor(lead.score)}`}>
                         {lead.score ? `${lead.score}%` : '—'}
                       </span>
@@ -666,6 +750,32 @@ export default function LeadsPage() {
                         <div className="bg-white rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap max-h-48 overflow-y-auto border border-gray-200">
                           {lead.proposal || 'Click Generate to create proposal'}
                         </div>
+
+                        {/* Regenerate with Feedback */}
+                        {lead.proposal && (
+                          <div className="mt-3">
+                            <textarea
+                              value={feedbackText[lead.id] || ''}
+                              onChange={(e) => setFeedbackText(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                              placeholder="What needs to change?"
+                              className="w-full p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                              rows={2}
+                            />
+                            <button
+                              onClick={() => generateProposal(lead.id, feedbackText[lead.id])}
+                              disabled={generatingId === lead.id || !feedbackText[lead.id]?.trim()}
+                              className={`mt-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                                generatingId === lead.id
+                                  ? 'bg-gray-300 text-gray-500 cursor-wait'
+                                  : !feedbackText[lead.id]?.trim()
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'bg-amber-500 hover:bg-amber-600 text-white'
+                              }`}
+                            >
+                              {generatingId === lead.id ? 'Regenerating...' : 'Regenerate with Feedback'}
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Screening Answers */}
