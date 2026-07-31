@@ -22,6 +22,7 @@ Only include facts you can confirm 100% from the transcript. Do NOT guess, inven
 ❌ Invention: Do not make up problems, goals, timelines, or deliverables not mentioned
 ❌ Weak language: "we think," "we believe," "potentially," "possibly"
 ❌ Passive voice
+❌ **Em dashes (— or –)**: NEVER use them, not even once. Rewrite any sentence that would use one.
 
 ---
 
