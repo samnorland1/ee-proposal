@@ -8,7 +8,7 @@ export default async function ProposalsPage() {
   const proposals = await getAllProposals();
 
   return (
-    <div className="p-4 md:p-8 max-w-full overflow-hidden">
+    <div className="p-4 md:p-8 max-w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-3">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 truncate">All Proposals</h2>

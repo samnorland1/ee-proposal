@@ -19,17 +19,31 @@ function TypeBadge({ type }: { type: ClientType }) {
   );
 }
 
+const STATUS_LABELS: Record<Proposal['status'], string> = {
+  draft: 'Draft',
+  ready: 'Ready',
+  sent: 'Sent',
+  chase_1: '3-Day Chase',
+  chase_2: '6-Day Chase',
+  chase_3: 'Final Chase',
+  won: 'Won',
+  lost: 'Lost',
+};
+
 function StatusBadge({ status }: { status: Proposal['status'] }) {
   const styles: Record<Proposal['status'], string> = {
     draft: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
     ready: 'bg-blue-50 text-blue-700 border border-blue-200',
     sent: 'bg-purple-50 text-purple-700 border border-purple-200',
+    chase_1: 'bg-orange-50 text-orange-700 border border-orange-200',
+    chase_2: 'bg-amber-50 text-amber-700 border border-amber-200',
+    chase_3: 'bg-rose-50 text-rose-700 border border-rose-200',
     won: 'bg-green-100 text-green-800 border border-green-300',
     lost: 'bg-red-50 text-red-600 border border-red-200',
   };
   return (
     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${styles[status]}`}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {STATUS_LABELS[status]}
     </span>
   );
 }

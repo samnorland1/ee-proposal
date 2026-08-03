@@ -88,6 +88,8 @@ export interface ProposalSections {
   headlines?: Record<string, string>;
   // Sections hidden from the proposal output (key names)
   hiddenSections?: string[];
+  // AI-generated chase copies keyed by status: chase_1, chase_2, chase_3
+  chaseCopies?: Record<string, string>;
 }
 
 /** Keys of ProposalSections whose value is a plain string (excludes image arrays, headlines map). */
@@ -104,7 +106,7 @@ export type StringSectionKey =
   | 'validity'
   | 'nextSteps';
 
-export type ProposalStatus = 'draft' | 'ready' | 'sent' | 'won' | 'lost';
+export type ProposalStatus = 'draft' | 'ready' | 'sent' | 'chase_1' | 'chase_2' | 'chase_3' | 'won' | 'lost';
 
 export interface QuantifiedProblem {
   problem: string;
@@ -150,6 +152,13 @@ export interface Proposal {
 // Upwork Lead types
 export type LeadStatus = 'new' | 'applied' | 'skipped' | 'won' | 'lost';
 
+export type ProposalComponentKey =
+  | 'hook' | 'proof' | 'outcomes' | 'whyMe' | 'plan'
+  | 'tip' | 'list' | 'freeAsset' | 'design' | 'campaigns' | 'flows'
+  | 'deliverability' | 'copywriting' | 'question' | 'ps';
+
+export type ProposalComponents = Partial<Record<ProposalComponentKey, string[]>>;
+
 export interface UpworkLead {
   id: string;
   createdAt: string;
@@ -172,6 +181,9 @@ export interface UpworkLead {
   screeningQuestions: string[] | null;
   screeningAnswers: Record<string, string> | null;
   hooks: string[] | null;
+  components?: ProposalComponents | null;
   score: number | null;
+  starred: boolean;
   status: LeadStatus;
+  appliedAt?: string | null;
 }

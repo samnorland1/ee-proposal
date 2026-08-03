@@ -5,10 +5,11 @@ import Link from 'next/link';
 
 interface Notification {
   id: string;
-  type: 'follow_up';
+  type: 'chase_ready' | 'follow_up';
   proposalId: string;
   clientName: string;
   message: string;
+  chaseLabel?: string;
   daysAgo: number;
 }
 
@@ -110,12 +111,12 @@ export function NotificationBell() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-2 h-2 bg-amber-500 rounded-full shrink-0" />
                         <span className="text-xs font-medium text-amber-600 uppercase tracking-wide">
-                          Follow Up
+                          {n.chaseLabel ?? 'Follow Up'}
                         </span>
                       </div>
                       <p className="text-sm text-gray-900 font-medium truncate">{n.clientName}</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        Proposal sent {n.daysAgo} days ago
+                        Sent {n.daysAgo} days ago
                       </p>
                       <Link
                         href={`/proposals/${n.proposalId}`}

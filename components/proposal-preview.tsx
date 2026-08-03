@@ -2,13 +2,14 @@
 
 import { Proposal, ProposalSections, AIThinking } from '@/types';
 
-function screenshotSrc(relativePath: string): string {
-  return '/' + relativePath.split('/').map(encodeURIComponent).join('/');
+function screenshotSrc(pathOrUrl: string): string {
+  if (pathOrUrl.startsWith('http')) return pathOrUrl;
+  return '/' + pathOrUrl.split('/').map(encodeURIComponent).join('/');
 }
 
-function captionFromPath(relativePath: string): string {
-  const filename = relativePath.split('/').pop() ?? '';
-  return filename.replace(/\.[^.]+$/, '');
+function captionFromPath(pathOrUrl: string): string {
+  const filename = pathOrUrl.split('/').pop() ?? '';
+  return filename.replace(/\.[^.]+$/, '').replace(/%[0-9A-F]{2}/gi, ' ').trim();
 }
 
 function renderInline(text: string, _onAccent?: boolean): React.ReactNode {

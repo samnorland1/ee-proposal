@@ -1,9 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UpworkLead, LeadStatus } from '@/types';
+import { UpworkLead, LeadStatus, ProposalComponentKey, ProposalComponents } from '@/types';
 
 type FilterStatus = 'all' | LeadStatus | 'starred' | 'generated';
+
+const COMPONENT_LABELS: { key: ProposalComponentKey; label: string }[] = [
+  { key: 'hook', label: 'Hook' },
+  { key: 'proof', label: 'Proof' },
+  { key: 'outcomes', label: 'Outcomes' },
+  { key: 'whyMe', label: 'Why Me' },
+  { key: 'plan', label: 'Plan' },
+  { key: 'tip', label: 'Tip' },
+  { key: 'list', label: 'List' },
+  { key: 'freeAsset', label: 'Free Asset' },
+  { key: 'design', label: 'Design' },
+  { key: 'campaigns', label: 'Campaigns' },
+  { key: 'flows', label: 'Flows' },
+  { key: 'deliverability', label: 'Deliverability' },
+  { key: 'copywriting', label: 'Copywriting' },
+  { key: 'question', label: 'Question' },
+  { key: 'ps', label: 'PS' },
+];
 
 interface VollnaStats {
   sent: number;
@@ -31,15 +49,26 @@ export default function LeadsPage() {
   const [vollnaError, setVollnaError] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState<Record<string, string>>({});
-  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [initialInstructions, setInitialInstructions] = useState<Record<string, string>>({});
+  const [starringId, setStarringId] = useState<string | null>(null);
+  const [qaResults, setQaResults] = useState<Record<string, { passed: boolean; issues: string[] }>>({});
+  const [componentsState, setComponentsState] = useState<Record<string, ProposalComponents>>({});
+
+  // Manual job entry modal
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualUrl, setManualUrl] = useState('');
+  const [manualInstructions, setManualInstructions] = useState('');
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAllLeads();
-    // Load starred IDs from localStorage
-    try {
-      const saved = localStorage.getItem('starredLeads');
-      if (saved) setStarredIds(new Set(JSON.parse(saved)));
-    } catch { /* ignore */ }
+    // Read filter from URL params
+    const params = new URLSearchParams(window.location.search);
+    const urlFilter = params.get('filter') as FilterStatus | null;
+    if (urlFilter) setFilter(urlFilter);
     // Load cached Vollna stats from localStorage
     const cached = localStorage.getItem('vollnaStats');
     if (cached) {
@@ -109,13 +138,70 @@ export default function LeadsPage() {
     setLoading(false);
   }
 
-  function toggleStar(id: string) {
-    setStarredIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      try { localStorage.setItem('starredLeads', JSON.stringify([...next])); } catch { /* ignore */ }
-      return next;
-    });
+  async function createManualJob() {
+    if (!manualTitle.trim() || !manualDescription.trim()) return;
+    setManualSubmitting(true);
+    setManualError(null);
+    try {
+      // Create the lead
+      const createRes = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: manualTitle.trim(),
+          description: manualDescription.trim(),
+          jobUrl: manualUrl.trim() || '',
+        }),
+      });
+      if (!createRes.ok) throw new Error('Failed to create lead');
+      const newLead: UpworkLead = await createRes.json();
+      const instructions = manualInstructions.trim() || undefined;
+
+      // Close modal and reset
+      setShowManualModal(false);
+      setManualTitle('');
+      setManualDescription('');
+      setManualUrl('');
+      setManualInstructions('');
+
+      // Refresh leads then generate
+      await fetchAllLeads();
+      setFilter('new');
+      await fetchLeads();
+
+      // Generate proposal (instructions go as feedback)
+      generateProposal(newLead.id, instructions);
+      setExpandedLead(newLead.id);
+    } catch (err) {
+      setManualError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setManualSubmitting(false);
+    }
+  }
+
+  async function toggleStar(id: string) {
+    const lead = allLeads.find(l => l.id === id);
+    if (!lead) return;
+    const newStarred = !lead.starred;
+    // Optimistic update
+    setAllLeads(prev => prev.map(l => l.id === id ? { ...l, starred: newStarred } : l));
+    setStarringId(id);
+    try {
+      await fetch(`/api/leads/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ starred: newStarred }),
+      });
+      // Auto-generate proposal when starring a lead that doesn't have one yet
+      if (newStarred && !lead.proposal) {
+        generateProposal(id);
+      }
+    } catch {
+      // Revert on failure
+      setAllLeads(prev => prev.map(l => l.id === id ? { ...l, starred: !newStarred } : l));
+    } finally {
+      setStarringId(null);
+    }
   }
 
   async function updateStatus(id: string, status: LeadStatus) {
@@ -147,7 +233,10 @@ export default function LeadsPage() {
         body: JSON.stringify({ feedback }),
       });
       if (res.ok) {
+        const data = await res.json();
         setFeedbackText(prev => ({ ...prev, [id]: '' }));
+        if (data.qa) setQaResults(prev => ({ ...prev, [id]: data.qa }));
+        if (data.components) setComponentsState(prev => ({ ...prev, [id]: data.components }));
         fetchLeads();
         fetchAllLeads();
       } else {
@@ -236,12 +325,13 @@ export default function LeadsPage() {
     : '0';
 
   const displayedLeads = filter === 'starred'
-    ? allLeads.filter(l => starredIds.has(l.id))
+    ? allLeads.filter(l => l.starred)
     : filter === 'generated'
     ? allLeads.filter(l => !!l.proposal)
     : leads;
 
   return (
+    <>
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -260,6 +350,12 @@ export default function LeadsPage() {
                 {status === 'starred' ? '⭐ Starred' : status === 'generated' ? 'Generated' : status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
+            <button
+              onClick={() => setShowManualModal(true)}
+              className="px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              + Add Job
+            </button>
           </div>
         </div>
 
@@ -471,9 +567,9 @@ export default function LeadsPage() {
                             <button
                               onClick={() => toggleStar(lead.id)}
                               className="px-1.5 py-1 rounded text-sm transition-colors hover:bg-gray-100"
-                              title={starredIds.has(lead.id) ? 'Unstar' : 'Star'}
+                              title={lead.starred ? 'Unstar' : 'Star'}
                             >
-                              {starredIds.has(lead.id) ? '⭐' : '☆'}
+                              {starringId === lead.id ? '...' : lead.starred ? '⭐' : '☆'}
                             </button>
                             {lead.proposal ? (
                               <button
@@ -538,7 +634,7 @@ export default function LeadsPage() {
                         <tr key={`${lead.id}-expanded`} className="bg-gray-50">
                           <td colSpan={['applied', 'won', 'lost'].includes(filter) ? 11 : 10} className="p-6">
                             <div className="grid grid-cols-2 gap-6">
-                              {/* Left: Job Details */}
+                              {/* Left: Job Details + Proposal + Screening */}
                               <div>
                                 <h3 className="font-semibold mb-3 text-gray-900">Job Details</h3>
                                 <div className="bg-white rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap max-h-80 overflow-y-auto border border-gray-200">
@@ -555,103 +651,218 @@ export default function LeadsPage() {
                                     View on Upwork →
                                   </a>
                                 )}
+
+                                {/* Generated Proposal */}
+                                <div className="mt-6">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-semibold text-gray-900">Generated Proposal</h3>
+                                      {qaResults[lead.id] && (
+                                        qaResults[lead.id].passed ? (
+                                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">QA Passed</span>
+                                        ) : (
+                                          <span
+                                            className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 cursor-help"
+                                            title={qaResults[lead.id].issues.join('\n')}
+                                          >
+                                            QA Fixed {qaResults[lead.id].issues.length} issue{qaResults[lead.id].issues.length !== 1 ? 's' : ''}
+                                          </span>
+                                        )
+                                      )}
+                                    </div>
+                                    {lead.proposal ? (
+                                      <button
+                                        onClick={() => copyToClipboard(lead.proposal || '', `expanded-${lead.id}`)}
+                                        className={`px-3 py-1 rounded text-sm transition-colors ${
+                                          copiedId === `expanded-${lead.id}`
+                                            ? 'bg-green-600 text-white'
+                                            : 'bg-[#02210C] hover:bg-[#033612] text-white'
+                                        }`}
+                                      >
+                                        {copiedId === `expanded-${lead.id}` ? 'Copied!' : 'Copy Proposal'}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => generateProposal(lead.id, initialInstructions[lead.id] || undefined)}
+                                        disabled={generatingId === lead.id}
+                                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                                          generatingId === lead.id
+                                            ? 'bg-gray-300 text-gray-500 cursor-wait'
+                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        }`}
+                                      >
+                                        {generatingId === lead.id ? 'Generating...' : 'Generate'}
+                                      </button>
+                                    )}
+                                  </div>
+                                  {qaResults[lead.id] && !qaResults[lead.id].passed && qaResults[lead.id].issues.length > 0 && (
+                                    <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                      <div className="text-xs font-semibold text-amber-800 mb-1">QA caught and fixed:</div>
+                                      <ul className="space-y-0.5">
+                                        {qaResults[lead.id].issues.map((issue, i) => (
+                                          <li key={i} className="text-xs text-amber-700">- {issue}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {!lead.proposal && (
+                                    <div className="mb-3">
+                                      <textarea
+                                        value={initialInstructions[lead.id] || ''}
+                                        onChange={(e) => setInitialInstructions(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                                        placeholder="Any specific instructions for this proposal? e.g. focus on their Shopify migration pain, mention the audit offer..."
+                                        className="w-full p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                                        rows={2}
+                                      />
+                                    </div>
+                                  )}
+                                  <div className="bg-white rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap max-h-80 overflow-y-auto border border-gray-200">
+                                    {lead.proposal || 'No proposal generated'}
+                                  </div>
+
+                                  {/* Regenerate with Feedback */}
+                                  {lead.proposal && (
+                                    <div className="mt-3">
+                                      <textarea
+                                        value={feedbackText[lead.id] || ''}
+                                        onChange={(e) => setFeedbackText(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                                        placeholder="What needs to change? e.g. hook is too generic, use the ecom checklist as the free offer..."
+                                        className="w-full p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                                        rows={2}
+                                      />
+                                      <button
+                                        onClick={() => generateProposal(lead.id, feedbackText[lead.id])}
+                                        disabled={generatingId === lead.id || !feedbackText[lead.id]?.trim()}
+                                        className={`mt-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                                          generatingId === lead.id
+                                            ? 'bg-gray-300 text-gray-500 cursor-wait'
+                                            : !feedbackText[lead.id]?.trim()
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                        }`}
+                                      >
+                                        {generatingId === lead.id ? 'Regenerating...' : 'Regenerate with Feedback'}
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Screening Answers */}
+                                  {lead.screeningAnswers && Object.keys(lead.screeningAnswers).length > 0 && (
+                                    <div className="mt-4">
+                                      <h4 className="font-medium text-gray-700 mb-2">Screening Questions</h4>
+                                      <div className="space-y-3">
+                                        {Object.entries(lead.screeningAnswers).map(([question, answer], i) => (
+                                          <div key={i} className="bg-white rounded-lg p-3 border border-gray-200">
+                                            <div className="text-xs text-gray-500 mb-1">{question}</div>
+                                            <div className="text-sm text-gray-700 flex items-start justify-between gap-2">
+                                              <span>{answer}</span>
+                                              <button
+                                                onClick={() => copyToClipboard(answer, `answer-${lead.id}-${i}`)}
+                                                className={`shrink-0 px-2 py-0.5 rounded text-xs transition-colors ${
+                                                  copiedId === `answer-${lead.id}-${i}`
+                                                    ? 'bg-green-600 text-white'
+                                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                                                }`}
+                                              >
+                                                {copiedId === `answer-${lead.id}-${i}` ? '✓' : 'Copy'}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
 
-                              {/* Right: Proposal */}
+                              {/* Right: Component Library */}
                               <div>
-                                <div className="flex items-center justify-between mb-3">
-                                  <h3 className="font-semibold text-gray-900">Generated Proposal</h3>
-                                  <button
-                                    onClick={() => copyToClipboard(lead.proposal || '', `expanded-${lead.id}`)}
-                                    className={`px-3 py-1 rounded text-sm transition-colors ${
-                                      copiedId === `expanded-${lead.id}`
-                                        ? 'bg-green-600 text-white'
-                                        : 'bg-[#02210C] hover:bg-[#033612] text-white'
-                                    }`}
-                                  >
-                                    {copiedId === `expanded-${lead.id}` ? 'Copied!' : 'Copy Proposal'}
-                                  </button>
-                                </div>
-                                <div className="bg-white rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap max-h-80 overflow-y-auto border border-gray-200">
-                                  {lead.proposal || 'No proposal generated'}
-                                </div>
-
-                                {/* Regenerate with Feedback */}
-                                {lead.proposal && (
-                                  <div className="mt-3">
-                                    <textarea
-                                      value={feedbackText[lead.id] || ''}
-                                      onChange={(e) => setFeedbackText(prev => ({ ...prev, [lead.id]: e.target.value }))}
-                                      placeholder="What needs to change? e.g. hook is too generic, use the ecom checklist as the free offer..."
-                                      className="w-full p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
-                                      rows={2}
-                                    />
-                                    <button
-                                      onClick={() => generateProposal(lead.id, feedbackText[lead.id])}
-                                      disabled={generatingId === lead.id || !feedbackText[lead.id]?.trim()}
-                                      className={`mt-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                                        generatingId === lead.id
-                                          ? 'bg-gray-300 text-gray-500 cursor-wait'
-                                          : !feedbackText[lead.id]?.trim()
-                                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                          : 'bg-amber-500 hover:bg-amber-600 text-white'
-                                      }`}
-                                    >
-                                      {generatingId === lead.id ? 'Regenerating...' : 'Regenerate with Feedback'}
-                                    </button>
-                                  </div>
-                                )}
-
-                                {/* Screening Answers */}
-                                {lead.screeningAnswers && Object.keys(lead.screeningAnswers).length > 0 && (
-                                  <div className="mt-4">
-                                    <h4 className="font-medium text-gray-700 mb-2">Screening Questions</h4>
-                                    <div className="space-y-3">
-                                      {Object.entries(lead.screeningAnswers).map(([question, answer], i) => (
-                                        <div key={i} className="bg-white rounded-lg p-3 border border-gray-200">
-                                          <div className="text-xs text-gray-500 mb-1">{question}</div>
-                                          <div className="text-sm text-gray-700 flex items-start justify-between gap-2">
-                                            <span>{answer}</span>
-                                            <button
-                                              onClick={() => copyToClipboard(answer, `answer-${lead.id}-${i}`)}
-                                              className={`shrink-0 px-2 py-0.5 rounded text-xs transition-colors ${
-                                                copiedId === `answer-${lead.id}-${i}`
-                                                  ? 'bg-green-600 text-white'
-                                                  : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                                              }`}
-                                            >
-                                              {copiedId === `answer-${lead.id}-${i}` ? '✓' : 'Copy'}
-                                            </button>
-                                          </div>
+                                {(() => {
+                                  const activeComponents = componentsState[lead.id] ?? lead.components;
+                                  const legacyHooks = lead.hooks;
+                                  if (activeComponents && Object.keys(activeComponents).length > 0) {
+                                    return (
+                                      <div className="border border-gray-200 rounded-lg overflow-hidden sticky top-6">
+                                        <div className="px-3 py-2 bg-[#02210C]">
+                                          <h4 className="text-white text-xs font-semibold uppercase tracking-wide">Component Library</h4>
+                                          <p className="text-green-300 text-xs mt-0.5">Pick and mix to build your proposal</p>
                                         </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Hooks */}
-                                {lead.hooks && lead.hooks.length > 0 && (
-                                  <div className="mt-4">
-                                    <h4 className="font-medium text-gray-700 mb-2">Hook Options</h4>
-                                    <div className="space-y-2">
-                                      {lead.hooks.map((hook, i) => (
-                                        <div key={i} className="bg-white rounded-lg p-3 border border-gray-200 flex items-start justify-between gap-2">
-                                          <span className="text-sm text-gray-700">{hook}</span>
-                                          <button
-                                            onClick={() => copyToClipboard(hook, `hook-${lead.id}-${i}`)}
-                                            className={`shrink-0 px-2 py-0.5 rounded text-xs transition-colors ${
-                                              copiedId === `hook-${lead.id}-${i}`
-                                                ? 'bg-green-600 text-white'
-                                                : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                                            }`}
-                                          >
-                                            {copiedId === `hook-${lead.id}-${i}` ? '✓' : 'Copy'}
-                                          </button>
+                                        <div className="divide-y divide-gray-100 max-h-[80vh] overflow-y-auto">
+                                          {COMPONENT_LABELS.map(({ key, label }) => {
+                                            const variants = activeComponents[key];
+                                            if (!variants?.length) return null;
+                                            return (
+                                              <div key={key} className="p-3">
+                                                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{label}</div>
+                                                <div className="space-y-1.5">
+                                                  {variants.map((variant, i) => (
+                                                    <div key={i} className="bg-gray-50 rounded p-2.5 flex items-start gap-2">
+                                                      <span className="text-xs font-bold text-gray-400 shrink-0 mt-0.5">{i + 1}</span>
+                                                      <span className="text-sm text-gray-800 leading-snug flex-1 whitespace-pre-wrap">{variant}</span>
+                                                      <div className="flex gap-1 shrink-0">
+                                                        {key === 'hook' && (
+                                                          <button
+                                                            onClick={() => setFeedbackText(prev => ({ ...prev, [lead.id]: `Use this hook instead: "${variant}"` }))}
+                                                            className="px-2 py-0.5 rounded text-xs font-medium bg-[#02210C] hover:bg-[#033612] text-white transition-colors"
+                                                          >
+                                                            Use
+                                                          </button>
+                                                        )}
+                                                        <button
+                                                          onClick={() => copyToClipboard(variant, `comp-${lead.id}-${key}-${i}`)}
+                                                          className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                                                            copiedId === `comp-${lead.id}-${key}-${i}`
+                                                              ? 'bg-green-600 text-white'
+                                                              : 'bg-white border border-gray-200 hover:bg-gray-100 text-gray-600'
+                                                          }`}
+                                                        >
+                                                          {copiedId === `comp-${lead.id}-${key}-${i}` ? '✓' : 'Copy'}
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
                                         </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
+                                      </div>
+                                    );
+                                  }
+                                  if (legacyHooks?.length) {
+                                    return (
+                                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                        <h4 className="font-semibold text-amber-900 text-xs uppercase tracking-wide mb-2">Hook Options</h4>
+                                        <div className="space-y-1.5">
+                                          {legacyHooks.map((hook, i) => (
+                                            <div key={i} className="bg-white rounded-md p-2.5 border border-amber-100 flex items-start justify-between gap-2">
+                                              <span className="text-sm text-gray-800 leading-snug"><span className="text-amber-600 font-bold mr-1">{i + 1}.</span>{hook}</span>
+                                              <div className="flex gap-1 shrink-0">
+                                                <button
+                                                  onClick={() => setFeedbackText(prev => ({ ...prev, [lead.id]: `Use this hook instead: "${hook}"` }))}
+                                                  className="px-2 py-0.5 rounded text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors"
+                                                >
+                                                  Use
+                                                </button>
+                                                <button
+                                                  onClick={() => copyToClipboard(hook, `hook-${lead.id}-${i}`)}
+                                                  className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                                                    copiedId === `hook-${lead.id}-${i}`
+                                                      ? 'bg-green-600 text-white'
+                                                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                                                  }`}
+                                                >
+                                                  {copiedId === `hook-${lead.id}-${i}` ? '✓' : 'Copy'}
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                             </div>
                           </td>
@@ -675,7 +886,7 @@ export default function LeadsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <button onClick={(e) => { e.stopPropagation(); toggleStar(lead.id); }} className="text-base leading-none shrink-0">
-                            {starredIds.has(lead.id) ? '⭐' : '☆'}
+                            {starringId === lead.id ? '...' : lead.starred ? '⭐' : '☆'}
                           </button>
                           <div className="font-medium text-gray-900 truncate">{lead.title}</div>
                         </div>
@@ -735,7 +946,7 @@ export default function LeadsPage() {
                             </button>
                           ) : (
                             <button
-                              onClick={() => generateProposal(lead.id)}
+                              onClick={() => generateProposal(lead.id, initialInstructions[lead.id] || undefined)}
                               disabled={generatingId === lead.id}
                               className={`px-3 py-1 rounded text-sm transition-colors ${
                                 generatingId === lead.id
@@ -747,9 +958,106 @@ export default function LeadsPage() {
                             </button>
                           )}
                         </div>
+                        {!lead.proposal && (
+                          <textarea
+                            value={initialInstructions[lead.id] || ''}
+                            onChange={(e) => setInitialInstructions(prev => ({ ...prev, [lead.id]: e.target.value }))}
+                            placeholder="Any specific instructions for this proposal? e.g. focus on their Shopify migration pain, mention the audit offer..."
+                            className="w-full mt-2 p-3 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                            rows={2}
+                          />
+                        )}
                         <div className="bg-white rounded-lg p-3 text-sm text-gray-700 whitespace-pre-wrap max-h-48 overflow-y-auto border border-gray-200">
                           {lead.proposal || 'Click Generate to create proposal'}
                         </div>
+
+                        {/* Component Library */}
+                        {(() => {
+                          const activeComponents = componentsState[lead.id] ?? lead.components;
+                          const legacyHooks = lead.hooks;
+                          if (activeComponents && Object.keys(activeComponents).length > 0) {
+                            return (
+                              <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="px-3 py-2 bg-[#02210C]">
+                                  <h4 className="text-white text-xs font-semibold uppercase tracking-wide">Component Library</h4>
+                                  <p className="text-green-300 text-xs mt-0.5">Pick and mix to build your proposal</p>
+                                </div>
+                                <div className="divide-y divide-gray-100">
+                                  {COMPONENT_LABELS.map(({ key, label }) => {
+                                    const variants = activeComponents[key];
+                                    if (!variants?.length) return null;
+                                    return (
+                                      <div key={key} className="p-3">
+                                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{label}</div>
+                                        <div className="space-y-1.5">
+                                          {variants.map((variant, i) => (
+                                            <div key={i} className="bg-gray-50 rounded p-2.5 flex items-start gap-2">
+                                              <span className="text-xs font-bold text-gray-400 shrink-0 mt-0.5">{i + 1}</span>
+                                              <span className="text-sm text-gray-800 leading-snug flex-1">{variant}</span>
+                                              <div className="flex gap-1 shrink-0">
+                                                {key === 'hook' && (
+                                                  <button
+                                                    onClick={() => setFeedbackText(prev => ({ ...prev, [lead.id]: `Use this hook instead: "${variant}"` }))}
+                                                    className="px-2 py-0.5 rounded text-xs font-medium bg-[#02210C] hover:bg-[#033612] text-white transition-colors"
+                                                  >
+                                                    Use
+                                                  </button>
+                                                )}
+                                                <button
+                                                  onClick={() => copyToClipboard(variant, `mcomp-${lead.id}-${key}-${i}`)}
+                                                  className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                                                    copiedId === `mcomp-${lead.id}-${key}-${i}`
+                                                      ? 'bg-green-600 text-white'
+                                                      : 'bg-white border border-gray-200 hover:bg-gray-100 text-gray-600'
+                                                  }`}
+                                                >
+                                                  {copiedId === `mcomp-${lead.id}-${key}-${i}` ? '✓' : 'Copy'}
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (legacyHooks?.length) {
+                            return (
+                              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                <h4 className="font-semibold text-amber-900 text-xs uppercase tracking-wide mb-2">Hook Options</h4>
+                                <div className="space-y-1.5">
+                                  {legacyHooks.map((hook, i) => (
+                                    <div key={i} className="bg-white rounded-md p-2.5 border border-amber-100 flex items-start justify-between gap-2">
+                                      <span className="text-sm text-gray-800 leading-snug"><span className="text-amber-600 font-bold mr-1">{i + 1}.</span>{hook}</span>
+                                      <div className="flex gap-1 shrink-0">
+                                        <button
+                                          onClick={() => setFeedbackText(prev => ({ ...prev, [lead.id]: `Use this hook instead: "${hook}"` }))}
+                                          className="px-2 py-0.5 rounded text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white transition-colors"
+                                        >
+                                          Use
+                                        </button>
+                                        <button
+                                          onClick={() => copyToClipboard(hook, `mobile-hook-${lead.id}-${i}`)}
+                                          className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                                            copiedId === `mobile-hook-${lead.id}-${i}`
+                                              ? 'bg-green-600 text-white'
+                                              : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                                          }`}
+                                        >
+                                          {copiedId === `mobile-hook-${lead.id}-${i}` ? '✓' : 'Copy'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
 
                         {/* Regenerate with Feedback */}
                         {lead.proposal && (
@@ -805,30 +1113,6 @@ export default function LeadsPage() {
                         </div>
                       )}
 
-                      {/* Hooks */}
-                      {lead.hooks && lead.hooks.length > 0 && (
-                        <div className="mb-4">
-                          <h3 className="font-semibold text-sm mb-2 text-gray-900">Hook Options</h3>
-                          <div className="space-y-2">
-                            {lead.hooks.map((hook, i) => (
-                              <div key={i} className="bg-white rounded-lg p-3 border border-gray-200 flex items-start justify-between gap-2">
-                                <span className="text-sm text-gray-700">{hook}</span>
-                                <button
-                                  onClick={() => copyToClipboard(hook, `mobile-hook-${lead.id}-${i}`)}
-                                  className={`shrink-0 px-2 py-0.5 rounded text-xs transition-colors ${
-                                    copiedId === `mobile-hook-${lead.id}-${i}`
-                                      ? 'bg-green-600 text-white'
-                                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                                  }`}
-                                >
-                                  {copiedId === `mobile-hook-${lead.id}-${i}` ? '✓' : 'Copy'}
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
                       {/* Actions */}
                       <div className="flex gap-2 flex-wrap">
                         {lead.jobUrl && (
@@ -877,5 +1161,95 @@ export default function LeadsPage() {
           </>
         )}
       </div>
+
+      {/* Manual Job Modal */}
+      {showManualModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">Add Job Manually</h2>
+              <button
+                onClick={() => { setShowManualModal(false); setManualError(null); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Job Title <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder="e.g. Klaviyo Email Strategist for Shopify Brand"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Job Description <span className="text-red-500">*</span></label>
+                <textarea
+                  value={manualDescription}
+                  onChange={(e) => setManualDescription(e.target.value)}
+                  placeholder="Paste the full job description here..."
+                  rows={10}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Job URL <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  placeholder="https://www.upwork.com/jobs/..."
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Proposal Instructions <span className="text-gray-400 font-normal">(optional)</span></label>
+                <textarea
+                  value={manualInstructions}
+                  onChange={(e) => setManualInstructions(e.target.value)}
+                  placeholder="Any specific angle? e.g. focus on their abandoned cart flow, lead with the free audit offer..."
+                  rows={2}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[#02210C] focus:border-transparent"
+                />
+              </div>
+
+              {manualError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{manualError}</div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                onClick={() => { setShowManualModal(false); setManualError(null); }}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createManualJob}
+                disabled={manualSubmitting || !manualTitle.trim() || !manualDescription.trim()}
+                className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  manualSubmitting || !manualTitle.trim() || !manualDescription.trim()
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-[#02210C] hover:bg-[#033612] text-white'
+                }`}
+              >
+                {manualSubmitting ? 'Creating...' : 'Create and Generate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -65,14 +65,33 @@ export function screenshotToUrl(relativePath: string): string {
   return `/${relativePath}`;
 }
 
+/** Parse folder and filename from either a relative path or a full Supabase URL. */
+function parsePath(pathOrUrl: string): { folder: string; filename: string } {
+  if (pathOrUrl.startsWith('http')) {
+    try {
+      const urlPath = new URL(pathOrUrl).pathname;
+      const parts = urlPath.split('/').filter(Boolean);
+      return {
+        folder: parts[parts.length - 2] ?? '',
+        filename: (parts[parts.length - 1] ?? '').replace(/\.[^.]+$/, ''),
+      };
+    } catch {
+      return { folder: '', filename: '' };
+    }
+  }
+  const parts = pathOrUrl.split('/');
+  return {
+    folder: parts[1] ?? '',
+    filename: parts[2]?.replace(/\.[^.]+$/, '') ?? '',
+  };
+}
+
 /**
  * Given a screenshot path like "screenshots/Deliverability/Spam to Primary.png",
  * return a professional, client-facing caption describing the result shown.
  */
 export async function generateCaption(relativePath: string): Promise<string> {
-  const parts = relativePath.split('/');
-  const folder = parts[1] ?? '';
-  const filename = parts[2]?.replace(/\.[^.]+$/, '') ?? '';
+  const { folder, filename } = parsePath(relativePath);
 
   const response = await anthropic.messages.create({
     model: 'claude-opus-4-6',
@@ -109,8 +128,8 @@ export async function generateCaptions(relativePaths: string[]): Promise<Record<
   if (relativePaths.length === 0) return {};
 
   const items = relativePaths.map((p) => {
-    const parts = p.split('/');
-    return `- Folder: ${parts[1] ?? ''}, Filename: ${parts[2]?.replace(/\.[^.]+$/, '') ?? ''}`;
+    const { folder, filename } = parsePath(p);
+    return `- Folder: ${folder}, Filename: ${filename}`;
   }).join('\n');
 
   const response = await anthropic.messages.create({
@@ -144,7 +163,7 @@ Return ONLY a valid JSON array like: ["caption 1", "caption 2"]`,
     const captions: string[] = JSON.parse(raw);
     const result: Record<string, string> = {};
     relativePaths.forEach((p, i) => {
-      result[p] = captions[i] ?? p.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+      result[p] = captions[i] ?? parsePath(p).filename;
     });
     return result;
   } catch {

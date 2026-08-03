@@ -1,27 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+import { Resend } from 'resend';
 
 export async function GET(req: NextRequest) {
-  // Require secret in URL: /api/test-email?secret=xxx
-  const secret = req.nextUrl.searchParams.get('secret');
-  if (secret !== process.env.CRON_SECRET) {
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
   try {
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: process.env.NOTIFICATION_EMAIL || process.env.GMAIL_USER,
+    await resend.emails.send({
+      from: 'Proposal App <ai@emailevolution.online>',
+      to: [process.env.NOTIFICATION_EMAIL || 'samnor88@googlemail.com'],
       subject: 'Test: Proposal App Email Notifications',
-      text: 'If you received this, email notifications are working!',
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #02210C;">Test Email</h2>

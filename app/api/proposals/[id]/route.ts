@@ -20,8 +20,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         updates.sentAt = new Date().toISOString();
       }
     }
-    // Clear sentAt if status changes away from 'sent'
-    if (updates.status && updates.status !== 'sent') {
+    // Clear sentAt only when reverting to pre-sent stages — not when advancing to chase stages
+    if (updates.status && ['draft', 'ready'].includes(updates.status)) {
       updates.sentAt = null;
     }
 

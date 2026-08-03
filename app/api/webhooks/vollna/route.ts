@@ -3,6 +3,7 @@ import { upsertLead, getLeadByJobId } from '@/lib/leads';
 import { UpworkLead } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { scoreLeadFast } from '@/lib/ai/lead-scorer';
+import { notifyHighScoreLead } from '@/lib/slack';
 
 // Vollna's actual webhook payload structure (snake_case)
 interface VollnaProject {
@@ -94,7 +95,7 @@ function extractFirstNameFromReviews(workHistory?: VollnaProject['client_work_hi
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify webhook secret if configured
+    // Optional auth check — only enforced if WEBHOOK_SECRET is set
     const webhookSecret = process.env.WEBHOOK_SECRET;
     if (webhookSecret) {
       const authHeader = request.headers.get('authorization');
@@ -143,6 +144,8 @@ export async function POST(request: NextRequest) {
     }
 
     const savedLeadIds: string[] = [];
+    // Collect new high-score leads for background proposal generation
+    const leadsForProposal: { id: string; jobData: ReturnType<typeof transformPayload> }[] = [];
 
     for (const project of projects) {
       if (!project.title || !project.description) {
@@ -174,7 +177,7 @@ export async function POST(request: NextRequest) {
         score = result.score;
       }
 
-      // Build lead object with score but no proposal
+      // Build lead object with score but no proposal yet
       const lead: Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt'> = {
         ...jobData,
         proposal: null,
@@ -182,12 +185,18 @@ export async function POST(request: NextRequest) {
         screeningAnswers: null,
         hooks: null,
         score,
+        starred: score !== null && score >= 80,
         status: 'new',
       };
 
       // Upsert to database (updates if job_id exists, preserves score/proposal/status)
       const savedLead = await upsertLead(lead, project);
       savedLeadIds.push(savedLead.id);
+
+      // Notify Slack for hot new leads
+      if (!existingLead && score !== null && score >= 80) {
+        await notifyHighScoreLead(savedLead);
+      }
     }
 
     return NextResponse.json({ success: true, count: savedLeadIds.length, leadIds: savedLeadIds });
@@ -200,7 +209,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt' | 'proposal' | 'screeningAnswers' | 'hooks' | 'score' | 'status'> {
+function transformPayload(project: VollnaProject): Omit<UpworkLead, 'id' | 'createdAt' | 'updatedAt' | 'proposal' | 'screeningAnswers' | 'hooks' | 'score' | 'starred' | 'status'> {
   // Budget is a string like "750 USD" or "25 - 60 USD"
   const budget = project.budget || null;
   const budgetType: 'fixed' | 'hourly' | null = project.budget_type === 'hourly' ? 'hourly' : project.budget_type === 'fixed' ? 'fixed' : null;

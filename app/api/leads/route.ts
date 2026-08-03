@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
       screeningAnswers: null,
       hooks: null,
       score: null,
+      starred: false,
       status: 'new',
     };
 

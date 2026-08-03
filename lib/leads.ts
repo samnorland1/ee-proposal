@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { UpworkLead, LeadStatus } from '@/types';
+import { UpworkLead, LeadStatus, ProposalComponents } from '@/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toRow(lead: Partial<UpworkLead> & { jobId: string }) {
@@ -22,6 +22,7 @@ function toRow(lead: Partial<UpworkLead> & { jobId: string }) {
     screening_questions: lead.screeningQuestions ?? null,
     screening_answers: lead.screeningAnswers ?? null,
     score: lead.score ?? null,
+    starred: lead.starred ?? false,
     status: lead.status ?? 'new',
     applied_at: lead.appliedAt ?? null,
   };
@@ -51,7 +52,9 @@ function fromRow(row: any): UpworkLead {
     screeningQuestions: row.screening_questions ?? null,
     screeningAnswers: row.screening_answers,
     hooks: row.hooks ?? null,
+    components: row.components ?? null,
     score: row.score,
+    starred: row.starred ?? false,
     status: row.status,
     appliedAt: row.applied_at ?? null,
   };
@@ -175,9 +178,10 @@ export async function updateLead(id: string, updates: Partial<UpworkLead>): Prom
   }
   if (updates.proposal !== undefined) dbUpdates.proposal = updates.proposal;
   if (updates.screeningAnswers !== undefined) dbUpdates.screening_answers = updates.screeningAnswers;
-  // hooks column doesn't exist yet - add via Supabase dashboard if needed
-  // if (updates.hooks !== undefined) dbUpdates.hooks = updates.hooks;
+  if (updates.hooks !== undefined) dbUpdates.hooks = updates.hooks;
+  if (updates.components !== undefined) dbUpdates.components = updates.components as ProposalComponents;
   if (updates.score !== undefined) dbUpdates.score = updates.score;
+  if (updates.starred !== undefined) dbUpdates.starred = updates.starred;
 
   const { data, error } = await supabase
     .from('upwork_leads')

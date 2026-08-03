@@ -2,6 +2,9 @@ import { complete } from './client';
 import { LEAD_PROPOSAL_SYSTEM } from '@/lib/prompts/lead-proposal';
 import { fetchAccomplishments } from '@/lib/case-studies';
 import { getRecentProposals } from '@/lib/leads';
+import { runProposalQA } from './proposal-qa';
+import { extractJobContext, JobContext } from './proposal-extractor';
+import { ProposalComponents } from '@/types';
 
 interface LeadJobData {
   title: string;
@@ -17,11 +20,13 @@ interface LeadJobData {
   clientFirstName: string | null;
 }
 
-interface ProposalResult {
+export interface ProposalResult {
   proposal: string;
   screeningAnswers: Record<string, string>;
-  hooks: string[];
+  components: ProposalComponents;
   score: number;
+  qaIssues: string[];
+  qaPassed: boolean;
 }
 
 export async function generateLeadProposal(
@@ -35,80 +40,89 @@ export async function generateLeadProposal(
     getRecentProposals(4),
   ]);
 
-  const userPrompt = buildUserPrompt(job, screeningQuestions, accomplishments, feedback, recentProposals);
+  // Step 1: Extract specific facts from the job post before writing a word
+  const context = await extractJobContext(job.title, job.description, accomplishments);
+
+  const userPrompt = buildUserPrompt(job, screeningQuestions, accomplishments, feedback, recentProposals, context);
 
   const text = await complete({
     system: LEAD_PROPOSAL_SYSTEM,
     messages: [{ role: 'user', content: userPrompt }],
-    maxTokens: 4096,
+    maxTokens: 8192,
   });
 
-  return parseResponse(text);
+  const initial = parseResponse(text);
+
+  // QA pass — second Opus call that checks every SOP rule and fixes violations
+  const qa = await runProposalQA(initial.proposal, job.clientFirstName, accomplishments);
+
+  return {
+    ...initial,
+    proposal: qa.proposal,
+    qaIssues: qa.issues,
+    qaPassed: qa.passed,
+  };
 }
 
-function buildUserPrompt(job: LeadJobData, screeningQuestions: string[], accomplishments: string, feedback?: string, recentProposals: string[] = []): string {
-  return `Analyze this job and write a proposal:
+function buildUserPrompt(job: LeadJobData, screeningQuestions: string[], accomplishments: string, feedback?: string, recentProposals: string[] = [], context?: JobContext): string {
+  const contextBlock = context && context.niche ? `
+## EXTRACTED JOB CONTEXT — USE THESE FACTS. DO NOT DEVIATE.
+These facts were extracted directly from the job post. Every sentence you write must be grounded in at least one of them.
 
-## Job Details
-**Title:** ${job.title}
-**Budget:** ${job.budget || 'Not specified'} (${job.budgetType || 'unknown'})
-**Category:** ${job.category || 'Not specified'}
-**Skills Required:** ${job.skills.join(', ') || 'Not specified'}
+- NICHE: ${context.niche}
+- THEIR SITUATION RIGHT NOW: ${context.currentSituation}
+- THEIR STATED GOALS: ${context.specificGoals.join(', ')}
+- THEIR SPECIFIC CONCERN: ${context.specificConcern}
+- UNIQUE DETAIL: ${context.uniqueDetail}
+- CASE STUDY TO USE (use this one, do not substitute): ${context.bestCaseStudy}
+- FREE ASSET TO ATTACH (name this exactly): ${context.bestFreeAsset}
+- HOOK DRAFT (use this as your opening or a close variant — it references their specific situation): ${context.hookDraft}
 
-## Job Description
-${job.description}
+Any sentence that is NOT grounded in the above facts is generic filler. Delete it.
+` : '';
+
+  return `Write a proposal for this Upwork job. Every sentence must be specific to this client. No generic email marketing statements.
 
 ## Client Info
-- First Name: ${job.clientFirstName || 'Unknown — DO NOT include any greeting at all. No "Hi," no name, nothing. Start directly with the hook.'}
+- First Name: ${job.clientFirstName || 'Unknown — DO NOT include any greeting. Start directly with the hook.'}
 - Country: ${job.clientCountry || 'Unknown'}
-- Total Spend: ${job.clientSpend || 'Unknown'}
-- Hire Rate: ${job.clientHireRate || 'Unknown'}
-- Review Score: ${job.clientReviewScore || 'Unknown'}
+${contextBlock}
+## Full Job Post (for reference)
+**Title:** ${job.title}
+${job.description}
 
-## Sam's Accomplishments (PICK THE MOST RELEVANT ONE FOR THIS JOB)
+## Sam's Accomplishments Doc
 ${accomplishments}
 
-${screeningQuestions.length > 0 ? `## Screening Questions (MUST answer each one)\n${screeningQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}` : ''}
-
-${recentProposals.length > 0 ? `## RECENTLY USED CASE STUDIES — DO NOT REPEAT
-The last ${recentProposals.length} proposals used these case studies. Pick a DIFFERENT one from the accomplishments doc this time:
+${screeningQuestions.length > 0 ? `## Screening Questions (answer each one)\n${screeningQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n` : ''}
+${recentProposals.length > 0 ? `## DO NOT REPEAT THESE RECENTLY USED CASE STUDIES
 ${recentProposals.map((p, i) => `--- Recent proposal ${i + 1} ---\n${p.slice(0, 300)}`).join('\n')}
 ---
-You MUST use a different case study with different numbers. Do not reuse any specific stats or results shown above.
-` : ''}${feedback ? `## Feedback on Previous Proposal\nThe previous version was not right. Address every point in this feedback:\n${feedback}\n` : ''}Write a personalized proposal. Pick ONE case study/result from the accomplishments above that best matches what this client needs. Do NOT make up results - only use what's in the accomplishments section.
+` : ''}${feedback ? `## Feedback on Previous Proposal — address every point:\n${feedback}\n` : ''}
+BEFORE OUTPUTTING, CHECK ALL 3 CORE RULES:
+1. UNDERSTAND — Every sentence references this client's specific niche, situation, or goals. No generic email marketing statements. No sentence that could apply to a different client unchanged.
+2. PROOF — The specific case study named above with its exact numbers. Includes "(see attached screenshots)".
+3. FREE ASSET — The specific asset named above, stated as attached or being sent. Not an action plan. Not bullet points. A named deliverable.
 
-BEFORE YOU WRITE THE FIRST LINE: The hook must open with the OUTCOME or RESULT the client wants to achieve — what they stand to GAIN. Do NOT open with their problem, pain point, what's broken, or what you do. Do NOT write things like "most accounts have broken flows" or "a lot of brands struggle with X" — that is pain framing, not outcome framing. The hook should make them picture a better future state, not remind them of their current problem.
-
-BEFORE OUTPUTTING THE JSON, CHECK ALL 3 CORE RULES:
-1. UNDERSTAND — Does the proposal show you understand their specific desired outcome WITHOUT repeating their words back? Is it correlation and expansion, not a summary of their post?
-2. PROOF — Is there a specific case study with real numbers from the accomplishments doc? Not vague experience. Real result, real context.
-3. FREE VALUE — Is something genuinely free given RIGHT NOW in the proposal text itself? Not "I'll send you X" or "I can do X for free later." An actual insight, tip, or action plan written into the message.
-
-If any of the 3 are missing or weak, rewrite before outputting.`;
+If any fail, rewrite before outputting.`;
 }
 
-function parseResponse(text: string): ProposalResult {
+function parseResponse(text: string): Omit<ProposalResult, 'qaIssues' | 'qaPassed'> {
   try {
-    // Try to extract JSON from the response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response');
-    }
-
+    if (!jsonMatch) throw new Error('No JSON found in response');
     const parsed = JSON.parse(jsonMatch[0]);
-
     return {
       proposal: parsed.proposal || '',
       screeningAnswers: parsed.screeningAnswers || {},
-      hooks: Array.isArray(parsed.hooks) ? parsed.hooks : [],
+      components: (parsed.components && typeof parsed.components === 'object') ? parsed.components : {},
       score: typeof parsed.score === 'number' ? parsed.score : 50,
     };
   } catch {
-    // Fallback if JSON parsing fails
     return {
       proposal: text,
       screeningAnswers: {},
-      hooks: [],
+      components: {},
       score: 50,
     };
   }

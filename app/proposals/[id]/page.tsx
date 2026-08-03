@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Proposal, ProposalSections, StringSectionKey } from '@/types';
 
-function screenshotSrc(relativePath: string): string {
-  return '/' + relativePath.split('/').map(encodeURIComponent).join('/');
+function screenshotSrc(pathOrUrl: string): string {
+  if (pathOrUrl.startsWith('http')) return pathOrUrl;
+  return '/' + pathOrUrl.split('/').map(encodeURIComponent).join('/');
 }
 
 function captionFromPath(relativePath: string): string {
@@ -23,6 +24,12 @@ function ScreenshotManager({ proposal, onChange, onCaptionChange }: {
   const [editingCaption, setEditingCaption] = useState<string | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
   const [generatingCaption, setGeneratingCaption] = useState<string | null>(null);
+  const [uploadFolder, setUploadFolder] = useState('');
+  const [newFolderName, setNewFolderName] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadKey, setUploadKey] = useState(0);
   const current = proposal.screenshots ?? [];
   const captions = proposal.screenshotCaptions ?? {};
 
@@ -60,6 +67,38 @@ function ScreenshotManager({ proposal, onChange, onCaptionChange }: {
   const saveCaption = (src: string) => {
     onCaptionChange(src, captionDraft);
     setEditingCaption(null);
+  };
+
+  const uploadScreenshot = async () => {
+    const folder = uploadFolder === '__new__' ? newFolderName.trim() : uploadFolder;
+    if (!uploadFile || !folder) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('folder', folder);
+      const res = await fetch('/api/screenshots/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Upload failed');
+      // Add to available list
+      setAvailable(prev => {
+        const existing = prev.find(f => f.name === folder);
+        if (existing) {
+          return prev.map(f => f.name === folder ? { ...f, files: [...f.files, data.url] } : f);
+        }
+        return [...prev, { name: folder, files: [data.url] }].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      // Auto-select the uploaded screenshot
+      await add(data.url);
+      setUploadFile(null);
+      setUploadKey(k => k + 1);
+      if (uploadFolder === '__new__') { setUploadFolder(folder); setNewFolderName(''); }
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -122,6 +161,57 @@ function ScreenshotManager({ proposal, onChange, onCaptionChange }: {
 
         {open && (
           <div className="border-t border-gray-100 pt-3 mt-3">
+            {/* Upload section */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Upload to library</p>
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="flex flex-col gap-1">
+                  <select
+                    value={uploadFolder}
+                    onChange={e => { setUploadFolder(e.target.value); if (e.target.value !== '__new__') setNewFolderName(''); }}
+                    className="border border-gray-200 rounded-md px-2 py-1.5 text-xs outline-none focus:border-[#02210C] bg-white"
+                  >
+                    <option value="">Select folder</option>
+                    {available.map(f => <option key={f.name} value={f.name}>{f.name}</option>)}
+                    <option value="__new__">+ New folder</option>
+                  </select>
+                  {uploadFolder === '__new__' && (
+                    <input
+                      type="text"
+                      value={newFolderName}
+                      onChange={e => setNewFolderName(e.target.value)}
+                      placeholder="Folder name"
+                      className="border border-gray-200 rounded-md px-2 py-1.5 text-xs outline-none focus:border-[#02210C]"
+                    />
+                  )}
+                </div>
+                <label className="cursor-pointer border border-gray-200 rounded-md px-2 py-1.5 text-xs bg-white hover:border-gray-400 transition-colors whitespace-nowrap">
+                  {uploadFile ? uploadFile.name : 'Choose image'}
+                  <input
+                    key={uploadKey}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => setUploadFile(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                <button
+                  onClick={uploadScreenshot}
+                  disabled={uploading || !uploadFile || !uploadFolder || (uploadFolder === '__new__' && !newFolderName.trim())}
+                  className="bg-[#02210C] text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-[#033a12] transition-colors disabled:opacity-40 whitespace-nowrap flex items-center gap-1"
+                >
+                  {uploading && (
+                    <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                  {uploading ? 'Uploading...' : 'Upload'}
+                </button>
+              </div>
+              {uploadError && <p className="text-red-500 text-xs mt-1.5">{uploadError}</p>}
+            </div>
+
             <p className="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wide">Available screenshots</p>
             {available.length === 0 && <p className="text-gray-400 text-sm italic">Loading...</p>}
             {available.map(folder => (
@@ -180,10 +270,24 @@ function StatusBadge({
   status: Proposal['status'];
   onChange: (s: Proposal['status']) => void;
 }) {
+  const statusLabels: Record<Proposal['status'], string> = {
+    draft: 'Draft',
+    ready: 'Ready',
+    sent: 'Sent',
+    chase_1: '3-Day Chase',
+    chase_2: '6-Day Chase',
+    chase_3: 'Final Chase',
+    won: 'Won',
+    lost: 'Lost',
+  };
+
   const styles: Record<Proposal['status'], string> = {
     draft: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
     ready: 'bg-blue-50 text-blue-700 border border-blue-200',
     sent: 'bg-purple-50 text-purple-700 border border-purple-200',
+    chase_1: 'bg-orange-50 text-orange-700 border border-orange-200',
+    chase_2: 'bg-amber-50 text-amber-700 border border-amber-200',
+    chase_3: 'bg-rose-50 text-rose-700 border border-rose-200',
     won: 'bg-green-100 text-green-800 border border-green-300',
     lost: 'bg-red-50 text-red-600 border border-red-200',
   };
@@ -192,7 +296,7 @@ function StatusBadge({
     <div className="flex items-center gap-1.5">
       {/* Current status badge */}
       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${styles[status]}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {statusLabels[status]}
       </span>
 
       {/* Action buttons based on current status */}
@@ -204,7 +308,7 @@ function StatusBadge({
           Mark Sent
         </button>
       )}
-      {status === 'sent' && (
+      {(status === 'sent' || status === 'chase_1' || status === 'chase_2' || status === 'chase_3') && (
         <>
           <button
             onClick={() => onChange('won')}
@@ -267,6 +371,7 @@ export default function ProposalPage() {
   const [downloading, setDownloading] = useState(false);
   const [extraContext, setExtraContext] = useState('');
   const [rewriting, setRewriting] = useState(false);
+  const [copiedChase, setCopiedChase] = useState<string | null>(null);
 
   const saveScreenshots = useCallback(
     async (screenshots: string[]) => {
@@ -612,6 +717,56 @@ export default function ProposalPage() {
           />
         </div>
       </div>
+
+      {/* Chase Replies */}
+      {(() => {
+        const copies = proposal.sections.chaseCopies;
+        if (!copies || Object.keys(copies).length === 0) return null;
+        const CHASE_ORDER: { key: string; label: string; color: string }[] = [
+          { key: 'chase_1', label: '3-Day Chase', color: 'text-orange-600' },
+          { key: 'chase_2', label: '6-Day Chase', color: 'text-amber-600' },
+          { key: 'chase_3', label: 'Final Chase', color: 'text-rose-600' },
+        ];
+        const entries = CHASE_ORDER.filter((c) => copies[c.key]);
+        if (entries.length === 0) return null;
+        return (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-4">
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50/50">
+              <div className="w-0.5 h-4 bg-[#02210C] rounded-full" />
+              <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Chase Replies</h3>
+            </div>
+            <div className="px-5 py-4 space-y-5">
+              {entries.map(({ key, label, color }) => (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${color}`}>{label}</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(copies[key]);
+                        setCopiedChase(key);
+                        setTimeout(() => setCopiedChase(null), 2000);
+                      }}
+                      className="text-xs text-[#02210C] hover:underline font-medium flex items-center gap-1"
+                    >
+                      {copiedChase === key ? (
+                        <>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Copied
+                        </>
+                      ) : 'Copy'}
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                    {copies[key]}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Sections */}
       <div className="space-y-4">
