@@ -206,44 +206,81 @@ function renderInline(text: string): string {
     .replace(/_(.+?)_/g, '$1');
 }
 
+function renderLine(line: string, i: number, bodyStyle: typeof s.body | typeof s.muted): React.ReactNode {
+  if (line.startsWith('- ') || line.startsWith('* ')) {
+    const content = renderInline(line.replace(/^[-*]\s+/, ''));
+    return (
+      <View key={i} style={s.bullet} wrap={false}>
+        <Text style={s.bulletMark}>·</Text>
+        <Text style={s.bulletBody}>{content}</Text>
+      </View>
+    );
+  }
+  if (line.match(/^\d+\.\s/)) {
+    const num = line.match(/^(\d+)\./)?.[1] ?? '•';
+    const content = renderInline(line.replace(/^\d+\.\s+/, ''));
+    return (
+      <View key={i} style={s.bullet} wrap={false}>
+        <Text style={s.bulletMark}>{num}.</Text>
+        <Text style={s.bulletBody}>{content}</Text>
+      </View>
+    );
+  }
+  if (line.startsWith('### ') || line.startsWith('#### ')) {
+    return (
+      <Text key={i} style={s.subhead}>{line.replace(/^#{3,4}\s+/, '')}</Text>
+    );
+  }
+  if (line.trim() === '') {
+    return <View key={`sp-${i}`} style={{ height: 3 }} />;
+  }
+  return (
+    <Text key={i} style={bodyStyle}>{renderInline(line)}</Text>
+  );
+}
+
 function Markdown({ text, small }: { text: string; small?: boolean }) {
   if (!text) return <View />;
   const bodyStyle = small ? s.muted : s.body;
   const lines = text.split('\n');
-  const elements: React.ReactNode[] = [];
+
+  // Group each ### subhead with the lines under it and render the group as an
+  // unbreakable block. Splitting a subhead from its bullets across a page
+  // break triggers react-pdf's overlapping-text layout bug.
+  type Block = { group: boolean; items: { line: string; i: number }[] };
+  const blocks: Block[] = [];
+  let open: Block | null = null;
 
   lines.forEach((line, i) => {
-    if (line.startsWith('- ') || line.startsWith('* ')) {
-      const content = renderInline(line.replace(/^[-*]\s+/, ''));
-      elements.push(
-        <View key={i} style={s.bullet}>
-          <Text style={s.bulletMark}>·</Text>
-          <Text style={s.bulletBody}>{content}</Text>
-        </View>
-      );
-    } else if (line.match(/^\d+\.\s/)) {
-      const num = line.match(/^(\d+)\./)?.[1] ?? '•';
-      const content = renderInline(line.replace(/^\d+\.\s+/, ''));
-      elements.push(
-        <View key={i} style={s.bullet}>
-          <Text style={s.bulletMark}>{num}.</Text>
-          <Text style={s.bulletBody}>{content}</Text>
-        </View>
-      );
-    } else if (line.startsWith('### ') || line.startsWith('#### ')) {
-      elements.push(
-        <Text key={i} style={s.subhead}>{line.replace(/^#{3,4}\s+/, '')}</Text>
-      );
-    } else if (line.trim() === '') {
-      elements.push(<View key={`sp-${i}`} style={{ height: 3 }} />);
+    const isHeading = line.startsWith('### ') || line.startsWith('#### ');
+    const isBlank = line.trim() === '';
+    if (isHeading) {
+      open = { group: true, items: [{ line, i }] };
+      blocks.push(open);
+    } else if (open && (!isBlank || open.items.length === 1)) {
+      open.items.push({ line, i });
     } else {
-      elements.push(
-        <Text key={i} style={bodyStyle}>{renderInline(line)}</Text>
-      );
+      open = null;
+      blocks.push({ group: false, items: [{ line, i }] });
     }
   });
 
-  return <View>{elements}</View>;
+  // Rendered as a fragment (no wrapper View): react-pdf only paginates
+  // wrap={false} blocks correctly when they are direct children of the Page —
+  // nesting them inside container Views triggers the overlap bug (#2904).
+  return (
+    <>
+      {blocks.map((block, b) =>
+        block.group ? (
+          <View key={`g-${b}`} wrap={false}>
+            {block.items.map(({ line, i }) => renderLine(line, i, bodyStyle))}
+          </View>
+        ) : (
+          block.items.map(({ line, i }) => renderLine(line, i, bodyStyle))
+        )
+      )}
+    </>
+  );
 }
 
 function Section({ title, content, small }: {
@@ -251,15 +288,17 @@ function Section({ title, content, small }: {
   content: string;
   small?: boolean;
 }) {
+  // Flat structure (no section wrapper View) so every block is a direct child
+  // of the Page — see the note in Markdown. minPresenceAhead keeps the title
+  // from stranding alone at the bottom of a page.
   return (
-    <View style={s.section}>
-      <View style={s.sectionHeader} wrap={false}>
+    <>
+      <View style={s.sectionHeader} wrap={false} minPresenceAhead={60}>
         <Text style={s.sectionLabel}>{title}</Text>
       </View>
-      <View style={s.sectionContent}>
-        <Markdown text={content} small={small} />
-      </View>
-    </View>
+      <Markdown text={content} small={small} />
+      <View style={{ height: 32 }} />
+    </>
   );
 }
 
