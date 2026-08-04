@@ -173,7 +173,91 @@ function StatusBadge({ status }: { status: Proposal['status'] }) {
   );
 }
 
-function ProposalCard({ proposal, onDragStart }: { proposal: Proposal; onDragStart?: (id: string) => void }) {
+function EditablePricing({
+  proposal,
+  onSave,
+}: {
+  proposal: Proposal;
+  onSave: (id: string, pricing: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(proposal.pricing);
+
+  const save = () => {
+    setEditing(false);
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== proposal.pricing) onSave(proposal.id, trimmed);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDragStart={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') {
+            setValue(proposal.pricing);
+            setEditing(false);
+          }
+        }}
+        placeholder="e.g. $2,500"
+        className="text-xs font-semibold text-gray-700 border border-gray-300 rounded-md px-1.5 py-0.5 w-28 text-right focus:outline-none focus:border-[#02210C] focus:ring-1 focus:ring-[#02210C]/20"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      title="Edit pricing"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setValue(proposal.pricing);
+        setEditing(true);
+      }}
+      className="group/price flex items-center gap-1 text-xs font-semibold text-gray-700 hover:text-[#02210C] transition-colors"
+    >
+      <span className={proposal.pricing ? '' : 'text-gray-400 italic font-normal'}>
+        {proposal.pricing || 'Add pricing'}
+      </span>
+      <svg
+        className="w-3 h-3 text-gray-300 opacity-0 group-hover/price:opacity-100 transition-opacity shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        />
+      </svg>
+    </button>
+  );
+}
+
+function ProposalCard({
+  proposal,
+  onDragStart,
+  onPricingChange,
+}: {
+  proposal: Proposal;
+  onDragStart?: (id: string) => void;
+  onPricingChange?: (id: string, pricing: string) => void;
+}) {
   return (
     <Link
       href={`/proposals/${proposal.id}`}
@@ -200,7 +284,11 @@ function ProposalCard({ proposal, onDragStart }: { proposal: Proposal; onDragSta
             year: 'numeric',
           })}
         </span>
-        <span className="text-xs font-semibold text-gray-700">{proposal.pricing}</span>
+        {onPricingChange ? (
+          <EditablePricing proposal={proposal} onSave={onPricingChange} />
+        ) : (
+          <span className="text-xs font-semibold text-gray-700">{proposal.pricing}</span>
+        )}
       </div>
     </Link>
   );
@@ -242,6 +330,31 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
       // Revert on error
       setProposals((prev) =>
         prev.map((p) => (p.id === proposalId ? { ...p, status: proposal.status } : p))
+      );
+    }
+  };
+
+  const handlePricingChange = async (proposalId: string, pricing: string) => {
+    const previous = proposals.find((p) => p.id === proposalId)?.pricing;
+
+    // Optimistic update — stats bar recalculates immediately
+    setProposals((prev) =>
+      prev.map((p) => (p.id === proposalId ? { ...p, pricing } : p))
+    );
+
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pricing }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+    } catch {
+      // Revert on error
+      setProposals((prev) =>
+        prev.map((p) =>
+          p.id === proposalId ? { ...p, pricing: previous ?? p.pricing } : p
+        )
       );
     }
   };
@@ -299,7 +412,7 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
             <p className="text-center text-sm text-gray-400 py-10">No proposals here</p>
           ) : (
             getCards(activeCol).map((p) => (
-              <ProposalCard key={p.id} proposal={p} />
+              <ProposalCard key={p.id} proposal={p} onPricingChange={handlePricingChange} />
             ))
           )}
         </div>
@@ -349,7 +462,7 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
                       key={p.id}
                       className={`transition-opacity ${draggingId === p.id ? 'opacity-50' : ''}`}
                     >
-                      <ProposalCard proposal={p} onDragStart={setDraggingId} />
+                      <ProposalCard proposal={p} onDragStart={setDraggingId} onPricingChange={handlePricingChange} />
                     </div>
                   ))
                 )}
