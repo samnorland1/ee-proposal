@@ -116,9 +116,12 @@ function StatsBar({ proposals }: { proposals: Proposal[] }) {
   const decided = won.length + lost.length;
   const winRate = decided > 0 ? Math.round((won.length / decided) * 100) : null;
 
-  const wonFixed = won.map((p) => parseFixedPrice(p.pricing)).filter((v): v is number => v !== null);
+  // Use wonAmount when set, fall back to pricing
+  const wonFixed = won
+    .map((p) => parseFixedPrice(p.wonAmount ?? p.pricing))
+    .filter((v): v is number => v !== null);
   const wonTotal = wonFixed.reduce((sum, v) => sum + v, 0);
-  const wonRateBased = won.filter((p) => isRateBased(p.pricing)).length;
+  const wonRateBased = won.filter((p) => isRateBased(p.wonAmount ?? p.pricing)).length;
 
   const pipelineFixed = pipeline.map((p) => parseFixedPrice(p.pricing)).filter((v): v is number => v !== null);
   const pipelineTotal = pipelineFixed.reduce((sum, v) => sum + v, 0);
@@ -249,14 +252,81 @@ function EditablePricing({
   );
 }
 
+function EditableWonAmount({
+  proposal,
+  onSave,
+}: {
+  proposal: Proposal;
+  onSave: (id: string, wonAmount: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(proposal.wonAmount ?? '');
+
+  const save = () => {
+    setEditing(false);
+    const trimmed = value.trim();
+    if (trimmed !== (proposal.wonAmount ?? '')) onSave(proposal.id, trimmed);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') {
+            setValue(proposal.wonAmount ?? '');
+            setEditing(false);
+          }
+        }}
+        placeholder={proposal.pricing || 'Final price'}
+        className="text-xs font-semibold text-green-800 border border-green-300 rounded-md px-1.5 py-0.5 w-28 text-right focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/20"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      title="Set final won price"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setValue(proposal.wonAmount ?? '');
+        setEditing(true);
+      }}
+      className="group/won flex items-center gap-1 text-xs font-semibold text-green-800 hover:text-green-900 transition-colors"
+    >
+      <span className={proposal.wonAmount ? '' : 'text-gray-400 italic font-normal'}>
+        {proposal.wonAmount || proposal.pricing || 'Set final price'}
+      </span>
+      <svg
+        className="w-3 h-3 text-green-400 opacity-0 group-hover/won:opacity-100 transition-opacity shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    </button>
+  );
+}
+
 function ProposalCard({
   proposal,
   onDragStart,
   onPricingChange,
+  onWonAmountChange,
 }: {
   proposal: Proposal;
   onDragStart?: (id: string) => void;
   onPricingChange?: (id: string, pricing: string) => void;
+  onWonAmountChange?: (id: string, wonAmount: string) => void;
 }) {
   return (
     <Link
@@ -284,10 +354,12 @@ function ProposalCard({
             year: 'numeric',
           })}
         </span>
-        {onPricingChange ? (
+        {proposal.status === 'won' && onWonAmountChange ? (
+          <EditableWonAmount proposal={proposal} onSave={onWonAmountChange} />
+        ) : onPricingChange ? (
           <EditablePricing proposal={proposal} onSave={onPricingChange} />
         ) : (
-          <span className="text-xs font-semibold text-gray-700">{proposal.pricing}</span>
+          <span className="text-xs font-semibold text-gray-700">{proposal.wonAmount ?? proposal.pricing}</span>
         )}
       </div>
     </Link>
@@ -330,6 +402,29 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
       // Revert on error
       setProposals((prev) =>
         prev.map((p) => (p.id === proposalId ? { ...p, status: proposal.status } : p))
+      );
+    }
+  };
+
+  const handleWonAmountChange = async (proposalId: string, wonAmount: string) => {
+    const previous = proposals.find((p) => p.id === proposalId)?.wonAmount;
+
+    setProposals((prev) =>
+      prev.map((p) => (p.id === proposalId ? { ...p, wonAmount } : p))
+    );
+
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wonAmount }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+    } catch {
+      setProposals((prev) =>
+        prev.map((p) =>
+          p.id === proposalId ? { ...p, wonAmount: previous } : p
+        )
       );
     }
   };
@@ -412,7 +507,7 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
             <p className="text-center text-sm text-gray-400 py-10">No proposals here</p>
           ) : (
             getCards(activeCol).map((p) => (
-              <ProposalCard key={p.id} proposal={p} onPricingChange={handlePricingChange} />
+              <ProposalCard key={p.id} proposal={p} onPricingChange={handlePricingChange} onWonAmountChange={handleWonAmountChange} />
             ))
           )}
         </div>
@@ -462,7 +557,7 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
                       key={p.id}
                       className={`transition-opacity ${draggingId === p.id ? 'opacity-50' : ''}`}
                     >
-                      <ProposalCard proposal={p} onDragStart={setDraggingId} onPricingChange={handlePricingChange} />
+                      <ProposalCard proposal={p} onDragStart={setDraggingId} onPricingChange={handlePricingChange} onWonAmountChange={handleWonAmountChange} />
                     </div>
                   ))
                 )}

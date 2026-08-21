@@ -76,6 +76,7 @@ export interface ProposalSections {
   whatsIncluded: string;
   whatThisMeans: string;
   results: string;
+  roi?: string;
   timeline: string;
   pricing: string;
   clientRequirements: string;
@@ -100,6 +101,7 @@ export type StringSectionKey =
   | 'whatsIncluded'
   | 'whatThisMeans'
   | 'results'
+  | 'roi'
   | 'timeline'
   | 'pricing'
   | 'clientRequirements'
@@ -147,6 +149,7 @@ export interface Proposal {
   screenshots?: string[]; // paths relative to public/, e.g. "screenshots/klaviyo/img.png"
   screenshotCaptions?: Record<string, string>; // path → custom caption override
   clientId?: string; // Link to CRM client record
+  wonAmount?: string; // Actual final price when deal was won (may differ from proposed pricing)
 }
 
 // Upwork Lead types

@@ -21,6 +21,7 @@ function toRow(p: Proposal) {
     screenshots: p.screenshots ?? [],
     screenshot_captions: p.screenshotCaptions ?? {},
     client_id: p.clientId ?? null,
+    won_amount: p.wonAmount ?? null,
   };
 }
 
@@ -45,6 +46,7 @@ function fromRow(row: any): Proposal {
     screenshots: row.screenshots ?? [],
     screenshotCaptions: row.screenshot_captions ?? {},
     clientId: row.client_id ?? undefined,
+    wonAmount: row.won_amount ?? undefined,
   };
 }
 
@@ -93,6 +95,7 @@ export async function updateProposal(id: string, updates: Partial<Proposal>): Pr
   if (updates.screenshots !== undefined) dbUpdates.screenshots = updates.screenshots;
   if (updates.screenshotCaptions !== undefined) dbUpdates.screenshot_captions = updates.screenshotCaptions;
   if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
+  if (updates.wonAmount !== undefined) dbUpdates.won_amount = updates.wonAmount;
 
   const { data, error } = await supabase
     .from('proposals')
