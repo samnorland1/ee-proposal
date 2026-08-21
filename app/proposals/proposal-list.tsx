@@ -188,7 +188,8 @@ function EditablePricing({
 
   const save = () => {
     setEditing(false);
-    const trimmed = value.trim();
+    let trimmed = value.trim();
+    if (trimmed && /^\d/.test(trimmed)) trimmed = '$' + trimmed;
     if (trimmed && trimmed !== proposal.pricing) onSave(proposal.id, trimmed);
   };
 
@@ -264,7 +265,8 @@ function EditableWonAmount({
 
   const save = () => {
     setEditing(false);
-    const trimmed = value.trim();
+    let trimmed = value.trim();
+    if (trimmed && /^\d/.test(trimmed)) trimmed = '$' + trimmed;
     if (trimmed !== (proposal.wonAmount ?? '')) onSave(proposal.id, trimmed);
   };
 
