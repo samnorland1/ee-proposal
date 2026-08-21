@@ -80,7 +80,7 @@ const PIPELINE_STATUSES: ProposalStatus[] = ['sent', 'chase_1', 'chase_2', 'chas
 function parseFixedPrice(pricing: string): number | null {
   if (!pricing) return null;
   if (/(hour|\/hr|p\/h|per week|\/week|weekly|per month|\/month|monthly)/i.test(pricing)) return null;
-  const m = pricing.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(k)?/i);
+  const m = pricing.match(/\$?\s*([\d,]+(?:\.\d+)?)\s*(k)?/i);
   if (!m) return null;
   const value = parseFloat(m[1].replace(/,/g, ''));
   if (isNaN(value)) return null;
