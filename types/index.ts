@@ -150,6 +150,7 @@ export interface Proposal {
   screenshotCaptions?: Record<string, string>; // path → custom caption override
   clientId?: string; // Link to CRM client record
   wonAmount?: string; // Actual final price when deal was won (may differ from proposed pricing)
+  minHours?: number; // Minimum guaranteed hours for rate-based deals (used to calculate min earnings)
 }
 
 // Upwork Lead types

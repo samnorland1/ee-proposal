@@ -91,6 +91,14 @@ function isRateBased(pricing: string): boolean {
   return /(hour|\/hr|p\/h|per week|\/week|weekly|per month|\/month|monthly)/i.test(pricing || '');
 }
 
+function parseHourlyRate(pricing: string): number | null {
+  if (!pricing || !isRateBased(pricing)) return null;
+  const m = pricing.match(/\$?\s*([\d,]+(?:\.\d+)?)/);
+  if (!m) return null;
+  const value = parseFloat(m[1].replace(/,/g, ''));
+  return isNaN(value) ? null : value;
+}
+
 function formatMoney(value: number): string {
   if (value >= 10000) {
     return `$${(value / 1000).toFixed(value >= 100000 ? 0 : 1).replace(/\.0$/, '')}K`;
@@ -120,13 +128,25 @@ function StatsBar({ proposals }: { proposals: Proposal[] }) {
   const wonFixed = won
     .map((p) => parseFixedPrice(p.wonAmount ?? p.pricing))
     .filter((v): v is number => v !== null);
-  const wonTotal = wonFixed.reduce((sum, v) => sum + v, 0);
-  const wonRateBased = won.filter((p) => isRateBased(p.wonAmount ?? p.pricing)).length;
+  const wonFixedTotal = wonFixed.reduce((sum, v) => sum + v, 0);
+
+  // Rate-based: sum rate × minHours for deals where both are set
+  const wonRateBased = won.filter((p) => isRateBased(p.wonAmount ?? p.pricing));
+  const rateMinTotal = wonRateBased.reduce((sum, p) => {
+    const rate = parseHourlyRate(p.wonAmount ?? p.pricing);
+    return rate && p.minHours ? sum + rate * p.minHours : sum;
+  }, 0);
+  const rateWithHours = wonRateBased.filter((p) => {
+    const rate = parseHourlyRate(p.wonAmount ?? p.pricing);
+    return rate && p.minHours;
+  }).length;
+
+  const wonTotal = wonFixedTotal + rateMinTotal;
 
   const pipelineFixed = pipeline.map((p) => parseFixedPrice(p.pricing)).filter((v): v is number => v !== null);
   const pipelineTotal = pipelineFixed.reduce((sum, v) => sum + v, 0);
 
-  const avgDeal = wonFixed.length > 0 ? wonTotal / wonFixed.length : null;
+  const avgDeal = wonFixed.length > 0 ? wonFixedTotal / wonFixed.length : null;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -139,8 +159,8 @@ function StatsBar({ proposals }: { proposals: Proposal[] }) {
         label="$ won"
         value={formatMoney(wonTotal)}
         detail={
-          wonRateBased > 0
-            ? `${wonFixed.length} fixed · ${wonRateBased} hourly/recurring`
+          wonRateBased.length > 0
+            ? `${wonFixed.length} fixed · ${rateWithHours}/${wonRateBased.length} hourly w/ min hrs`
             : `${wonFixed.length} fixed-price ${wonFixed.length === 1 ? 'deal' : 'deals'}`
         }
       />
@@ -253,6 +273,77 @@ function EditablePricing({
   );
 }
 
+function EditableMinHours({
+  proposal,
+  onSave,
+}: {
+  proposal: Proposal;
+  onSave: (id: string, minHours: number | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(proposal.minHours?.toString() ?? '');
+  const rate = parseHourlyRate(proposal.wonAmount ?? proposal.pricing);
+
+  const save = () => {
+    setEditing(false);
+    const num = parseFloat(value.trim());
+    const next = isNaN(num) || num <= 0 ? null : num;
+    if (next !== (proposal.minHours ?? null)) onSave(proposal.id, next);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        min="0"
+        step="0.5"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') { setValue(proposal.minHours?.toString() ?? ''); setEditing(false); }
+        }}
+        placeholder="min hrs"
+        className="text-xs text-gray-500 border border-gray-300 rounded-md px-1.5 py-0.5 w-20 text-right focus:outline-none focus:border-[#02210C] focus:ring-1 focus:ring-[#02210C]/20"
+      />
+    );
+  }
+
+  const minEarning = rate && proposal.minHours ? rate * proposal.minHours : null;
+
+  return (
+    <button
+      type="button"
+      title="Set minimum hours"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setValue(proposal.minHours?.toString() ?? '');
+        setEditing(true);
+      }}
+      className="group/hrs flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+    >
+      {proposal.minHours ? (
+        <span className="font-medium">
+          {proposal.minHours}h min{minEarning ? ` · ${formatMoney(minEarning)}` : ''}
+        </span>
+      ) : (
+        <span className="italic">+ min hrs</span>
+      )}
+      <svg
+        className="w-3 h-3 opacity-0 group-hover/hrs:opacity-100 transition-opacity shrink-0"
+        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    </button>
+  );
+}
+
 function EditableWonAmount({
   proposal,
   onSave,
@@ -324,11 +415,13 @@ function ProposalCard({
   onDragStart,
   onPricingChange,
   onWonAmountChange,
+  onMinHoursChange,
 }: {
   proposal: Proposal;
   onDragStart?: (id: string) => void;
   onPricingChange?: (id: string, pricing: string) => void;
   onWonAmountChange?: (id: string, wonAmount: string) => void;
+  onMinHoursChange?: (id: string, minHours: number | null) => void;
 }) {
   return (
     <Link
@@ -364,6 +457,11 @@ function ProposalCard({
           <span className="text-xs font-semibold text-gray-700">{proposal.wonAmount ?? proposal.pricing}</span>
         )}
       </div>
+      {proposal.status === 'won' && onMinHoursChange && isRateBased(proposal.wonAmount ?? proposal.pricing) && (
+        <div className="flex justify-end mt-1">
+          <EditableMinHours proposal={proposal} onSave={onMinHoursChange} />
+        </div>
+      )}
     </Link>
   );
 }
@@ -404,6 +502,27 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
       // Revert on error
       setProposals((prev) =>
         prev.map((p) => (p.id === proposalId ? { ...p, status: proposal.status } : p))
+      );
+    }
+  };
+
+  const handleMinHoursChange = async (proposalId: string, minHours: number | null) => {
+    const previous = proposals.find((p) => p.id === proposalId)?.minHours;
+
+    setProposals((prev) =>
+      prev.map((p) => (p.id === proposalId ? { ...p, minHours: minHours ?? undefined } : p))
+    );
+
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minHours }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+    } catch {
+      setProposals((prev) =>
+        prev.map((p) => (p.id === proposalId ? { ...p, minHours: previous } : p))
       );
     }
   };
@@ -509,7 +628,7 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
             <p className="text-center text-sm text-gray-400 py-10">No proposals here</p>
           ) : (
             getCards(activeCol).map((p) => (
-              <ProposalCard key={p.id} proposal={p} onPricingChange={handlePricingChange} onWonAmountChange={handleWonAmountChange} />
+              <ProposalCard key={p.id} proposal={p} onPricingChange={handlePricingChange} onWonAmountChange={handleWonAmountChange} onMinHoursChange={handleMinHoursChange} />
             ))
           )}
         </div>
@@ -559,7 +678,7 @@ export function ProposalList({ proposals: initialProposals }: { proposals: Propo
                       key={p.id}
                       className={`transition-opacity ${draggingId === p.id ? 'opacity-50' : ''}`}
                     >
-                      <ProposalCard proposal={p} onDragStart={setDraggingId} onPricingChange={handlePricingChange} onWonAmountChange={handleWonAmountChange} />
+                      <ProposalCard proposal={p} onDragStart={setDraggingId} onPricingChange={handlePricingChange} onWonAmountChange={handleWonAmountChange} onMinHoursChange={handleMinHoursChange} />
                     </div>
                   ))
                 )}
