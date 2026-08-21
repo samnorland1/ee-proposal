@@ -3,7 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith("/login") || pathname.startsWith("/api/auth") || pathname.startsWith("/api/webhooks") || pathname.startsWith("/api/cron")) {
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/cron") ||
+    pathname.startsWith("/api/public/") ||
+    pathname.startsWith("/p/")
+  ) {
     return NextResponse.next();
   }
 

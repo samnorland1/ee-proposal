@@ -255,6 +255,7 @@ const SECTIONS: { key: StringSectionKey; label: string }[] = [
   { key: 'solution', label: 'Solution' },
   { key: 'whatsIncluded', label: "What's Included" },
   { key: 'whatThisMeans', label: 'What This Means For You' },
+  { key: 'roi', label: 'ROI' },
   { key: 'results', label: 'Results' },
   { key: 'timeline', label: 'Timeline' },
   { key: 'pricing', label: 'Pricing' },
@@ -372,6 +373,7 @@ export default function ProposalPage() {
   const [extraContext, setExtraContext] = useState('');
   const [rewriting, setRewriting] = useState(false);
   const [copiedChase, setCopiedChase] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const saveScreenshots = useCallback(
     async (screenshots: string[]) => {
@@ -647,6 +649,33 @@ export default function ProposalPage() {
             Preview
           </a>
           <button
+            onClick={() => {
+              const link = `${window.location.origin}/p/${id}`;
+              navigator.clipboard.writeText(link).then(() => {
+                setCopiedLink(true);
+                setTimeout(() => setCopiedLink(false), 2000);
+              });
+            }}
+            className="border border-gray-300 text-gray-600 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+            title="Copy shareable client link"
+          >
+            {copiedLink ? (
+              <>
+                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-green-600">Copied!</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Copy Link
+              </>
+            )}
+          </button>
+          <button
             onClick={downloadPDF}
             disabled={downloading}
             className="bg-[#02210C] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#033a12] transition-colors disabled:opacity-50 flex items-center gap-2"
@@ -828,7 +857,7 @@ export default function ProposalPage() {
                         setEditing(null);
                       } else {
                         setEditing(key);
-                        setDraft(proposal.sections[key]);
+                        setDraft(proposal.sections[key] ?? '');
                       }
                     }}
                     className="text-xs text-[#02210C] hover:underline font-medium"
@@ -848,7 +877,7 @@ export default function ProposalPage() {
                   autoFocus
                 />
               ) : (
-                <MarkdownPreview content={proposal.sections[key]} />
+                <MarkdownPreview content={proposal.sections[key] ?? ''} />
               )}
             </div>
           </div>

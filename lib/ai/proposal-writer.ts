@@ -17,7 +17,7 @@ const SECTION_MAP: Record<string, keyof ProposalSections> = {
   'investment': 'pricing',
 };
 
-const COMM_PM_SECTION = `\n\n### COMMUNICATION & PROJECT MANAGEMENT\n- Fast and easy communication at all times via private Slack Channel (or preferred app)\n- Clickup for full project management and campaign/task approval\n- All deadlines met and regular updates sent\n- Regular stat reporting`;
+const COMM_PM_SECTION = `\n\n### COMMUNICATION & PROJECT MANAGEMENT\n- Fast and easy communication at all times\n- Clickup for full project management and campaign/task approval\n- All deadlines met and regular updates sent\n- Regular stat reporting`;
 
 const STATIC_DEFAULTS: Pick<ProposalSections, 'results' | 'clientRequirements' | 'validity' | 'nextSteps'> = {
   results: '',

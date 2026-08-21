@@ -10,6 +10,10 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
+  if (pathname.startsWith('/p/') || pathname === '/login') {
+    return <>{children}</>;
+  }
+
   const navSections = [
     {
       title: null,

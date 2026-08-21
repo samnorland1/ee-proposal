@@ -277,6 +277,7 @@ export function ProposalPreview({ proposal }: ProposalPreviewProps) {
           {show('solution') && <Section label="Solution">{renderContent(sections.solution)}</Section>}
           {show('whatsIncluded') && <Section label="What's Included">{renderContent(sections.whatsIncluded)}</Section>}
           {show('whatThisMeans') && <Section label="What This Means For You" accent>{renderContent(sections.whatThisMeans, true)}</Section>}
+          {show('roi') && <Section label="ROI">{renderContent(sections.roi ?? '')}</Section>}
           {show('results') && (
             <Section label="Results">
               {sections.results

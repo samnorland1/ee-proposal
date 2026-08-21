@@ -81,7 +81,7 @@ Only include facts you can confirm 100% from the transcript. Do NOT guess, inven
 - ALWAYS end with this section exactly as written:
 
 ### COMMUNICATION & PROJECT MANAGEMENT
-- Fast and easy communication at all times via private Slack Channel (or preferred app)
+- Fast and easy communication at all times
 - Clickup for full project management and campaign/task approval
 - All deadlines met and regular updates sent
 - Regular stat reporting

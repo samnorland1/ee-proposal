@@ -198,6 +198,41 @@ const s = StyleSheet.create({
   },
 });
 
+// ── SCREENSHOT GRID ────────────────────────────────────────────────────────
+// IMPORTANT: Do NOT replace this with a flexWrap:'wrap' container View.
+// react-pdf cannot split a flex-row container across a page break — it clips
+// the overflow instead of paginating. Each row MUST be its own wrap={false}
+// View so react-pdf can move entire rows to the next page cleanly.
+// This is react-pdf bug #2904 and it will never be "fixed" upstream.
+interface ScreenshotGridProps {
+  absPaths: string[];
+  relPaths: string[];
+  captions: Record<string, string>;
+}
+function ScreenshotGrid({ absPaths, relPaths, captions }: ScreenshotGridProps) {
+  const rows: React.ReactNode[] = [];
+  for (let i = 0; i < absPaths.length; i += 2) {
+    const pair = absPaths.slice(i, i + 2);
+    rows.push(
+      <View key={`row-${i}`} wrap={false} style={{ flexDirection: 'row', gap: 8, marginTop: i === 0 ? 10 : 8 }}>
+        {pair.map((p, j) => {
+          const idx = i + j;
+          const rel = relPaths[idx] ?? '';
+          const caption = captions[rel] ?? rel.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
+          return (
+            <View key={idx} style={{ flex: 1 }}>
+              <Image src={p} style={[s.screenshotImg, { marginTop: 0 }]} />
+              {caption ? <Text style={s.screenshotCaption}>{caption}</Text> : null}
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
+  return <>{rows}</>;
+}
+// ───────────────────────────────────────────────────────────────────────────
+
 function renderInline(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -420,36 +455,28 @@ export function ProposalPDF({ proposal, avatarPath, screenshotAbsPaths, screensh
         {show('solution') && <Section title="Solution" content={sections.solution} />}
         {show('whatsIncluded') && <Section title="What's Included" content={sections.whatsIncluded} />}
         {show('whatThisMeans') && <Section title="What This Means For You" content={sections.whatThisMeans} />}
+        {show('roi') && <Section title="ROI" content={sections.roi ?? ''} />}
         {show('results') && (
-          <View style={s.section}>
-            <View style={s.sectionHeader} wrap={false}>
+          <>
+            <View style={s.sectionHeader} wrap={false} minPresenceAhead={60}>
               <Text style={s.sectionLabel}>Results</Text>
             </View>
-            <View style={s.sectionContent}>
-              {sections.results ? (
-                <Markdown text={sections.results} />
-              ) : !screenshotAbsPaths?.length ? (
-                <View style={s.placeholder}>
-                  <Text style={s.placeholderText}>Results — add your content in the editor</Text>
-                </View>
-              ) : null}
-              {screenshotAbsPaths && (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                  {screenshotAbsPaths.map((absPath, i) => {
-                    const relPath = proposal.screenshots?.[i] ?? '';
-                    const caption = screenshotCaptions?.[relPath]
-                      ?? relPath.split('/').pop()?.replace(/\.[^.]+$/, '') ?? '';
-                    return (
-                      <View key={i} wrap={false} style={{ width: '49%' }}>
-                        <Image src={absPath} style={[s.screenshotImg, { marginTop: 0 }]} />
-                        {caption ? <Text style={s.screenshotCaption}>{caption}</Text> : null}
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          </View>
+            {sections.results ? (
+              <Markdown text={sections.results} />
+            ) : !screenshotAbsPaths?.length ? (
+              <View style={s.placeholder}>
+                <Text style={s.placeholderText}>Results — add your content in the editor</Text>
+              </View>
+            ) : null}
+            {screenshotAbsPaths && (
+              <ScreenshotGrid
+                absPaths={screenshotAbsPaths}
+                relPaths={proposal.screenshots ?? []}
+                captions={screenshotCaptions ?? {}}
+              />
+            )}
+            <View style={{ height: 32 }} />
+          </>
         )}
         {show('timeline') && <Section title="Timeline" content={sections.timeline} />}
         {show('pricing') && <Section title="Pricing" content={sections.pricing} />}
