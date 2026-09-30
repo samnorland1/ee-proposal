@@ -539,7 +539,13 @@ export default function LeadsPage() {
                         className="border-t border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                       >
                         <td className="py-2 px-3">
-                          <div className="font-medium text-gray-900 text-sm">{lead.title}</div>
+                          <a
+                            href={`/leads/${lead.id}`}
+                            onClick={(e) => { e.preventDefault(); setExpandedLead(expandedLead === lead.id ? null : lead.id); }}
+                            className="font-medium text-gray-900 text-sm hover:underline"
+                          >
+                            {lead.title}
+                          </a>
                           <div className="text-xs text-gray-500">
                             {lead.skills.slice(0, 3).join(' · ')}
                             {lead.skills.length > 3 && ` +${lead.skills.length - 3}`}
@@ -888,7 +894,13 @@ export default function LeadsPage() {
                           <button onClick={(e) => { e.stopPropagation(); toggleStar(lead.id); }} className="text-base leading-none shrink-0">
                             {starringId === lead.id ? '...' : lead.starred ? '⭐' : '☆'}
                           </button>
-                          <div className="font-medium text-gray-900 truncate">{lead.title}</div>
+                          <a
+                            href={`/leads/${lead.id}`}
+                            onClick={(e) => { e.preventDefault(); setExpandedLead(expandedLead === lead.id ? null : lead.id); }}
+                            className="font-medium text-gray-900 truncate hover:underline"
+                          >
+                            {lead.title}
+                          </a>
                         </div>
                         <div className="text-sm text-gray-500 mt-1">
                           {lead.skills.slice(0, 2).join(' · ')}
