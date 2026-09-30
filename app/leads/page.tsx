@@ -541,7 +541,7 @@ export default function LeadsPage() {
                         <td className="py-2 px-3">
                           <a
                             href={`/leads/${lead.id}`}
-                            onClick={(e) => { e.preventDefault(); setExpandedLead(expandedLead === lead.id ? null : lead.id); }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpandedLead(expandedLead === lead.id ? null : lead.id); }}
                             className="font-medium text-gray-900 text-sm hover:underline"
                           >
                             {lead.title}
@@ -896,7 +896,7 @@ export default function LeadsPage() {
                           </button>
                           <a
                             href={`/leads/${lead.id}`}
-                            onClick={(e) => { e.preventDefault(); setExpandedLead(expandedLead === lead.id ? null : lead.id); }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpandedLead(expandedLead === lead.id ? null : lead.id); }}
                             className="font-medium text-gray-900 truncate hover:underline"
                           >
                             {lead.title}
